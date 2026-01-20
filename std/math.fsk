@@ -1,0 +1,28 @@
+class Math {
+  fn max(a, b) {
+    if (a > b) return a;
+    return b;
+  }
+
+  fn min(a, b) {
+    if (a < b) return a;
+    return b;
+  }
+
+  fn pow(base, exponent) {
+    let result = 1;
+    let i = 0;
+    while (i < exponent) {
+      result = result * base;
+      i = i + 1;
+    }
+    return result;
+  }
+  
+  fn abs(n) {
+    if (n < 0) return -n;
+    return n;
+  }
+}
+
+let Math = Math(); 

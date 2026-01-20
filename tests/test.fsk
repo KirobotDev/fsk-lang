@@ -1,0 +1,11 @@
+let x = 10
+const msg = "Hello FSK"
+fn add(a, b) -> int {
+    return a + b
+}
+async fn test() {
+    await some_call()
+}
+if (x > 5) {
+    print("Large")
+}

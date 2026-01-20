@@ -1,0 +1,11 @@
+let x: int = 10
+print(x)
+
+try {
+  let y: string = 20
+} catch (err) {
+  print("Erreur capturée : " + err)
+}
+
+let z: bool = true
+print(z)
