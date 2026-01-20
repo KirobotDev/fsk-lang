@@ -1,0 +1,35 @@
+{
+    "name": "fsk-lang",
+    "displayName": "Fsk",
+    "description": "Fsk Language Support (Syntax Highlighting & Icons)",
+    "version": "1.0.0",
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "icon": "logo.png",
+    "contributes": {
+        "languages": [
+            {
+                "id": "fsk",
+                "aliases": [
+                    "Fsk",
+                    "fsk"
+                ],
+                "extensions": [
+                    ".fsk"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "fsk",
+                "scopeName": "source.fsk",
+                "path": "./syntaxes/fsk.tmLanguage.json"
+            }
+        ]
+    }
+}
