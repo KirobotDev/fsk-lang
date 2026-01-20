@@ -1,0 +1,44 @@
+fn printHelp() {
+    print "Usage: fpm <command> [args]";
+    print "Commands:";
+    print "  init            Initialize a new Fsk package";
+    print "  install <url>   Install a package from a Git URL";
+}
+
+let argCount = FSK.argCount();
+
+if (argCount < 2) {
+    printHelp();
+} else {
+    let command = FSK.arg(2); 
+
+    if (command == "init") {
+        if (FSK.exists("package.fsk")) {
+             print "Error: package.fsk already exists.";
+        } else {
+             let content = "{\n  \"name\": \"my-project\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {}\n}";
+             writeFile("package.fsk", content);
+             print "Created package.fsk";
+        }
+    } else if (command == "install") {
+        if (argCount < 3) {
+            print "Usage: fpm install <git_url>";
+        } else {
+            let url = FSK.arg(3);
+            print "Installing " + url + "...";
+
+            if (FSK.exists("fsk_modules") == false) {
+                FSK.mkdir("fsk_modules");
+            }
+
+            let name = "package_" + FSK.random(1, 1000); 
+            let cmd = "cd fsk_modules && git clone " + url;
+            let res = FSK.shell(cmd);
+            print res;
+            print "Done.";
+        }
+    } else {
+        print "Unknown command: " + command;
+        printHelp();
+    }
+}

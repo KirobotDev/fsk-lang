@@ -24,6 +24,9 @@ Interpreter::Interpreter() {
   globals = std::make_shared<Environment>();
   environment = globals;
 
+  std::vector<Value> argList;
+
+
   globals->define(
       "clock", std::make_shared<NativeFunction>(0, [](Interpreter &interp,
                                                       std::vector<Value> args) {
@@ -301,13 +304,49 @@ Interpreter::Interpreter() {
          return Value(s.substr(start, len));
       });
 
+  fskInstance->fields["args"] = std::make_shared<NativeFunction>(
+      0, [this](Interpreter &interp, std::vector<Value> args) {
+
+         return Value(std::monostate{}); 
+      });
+
+   fskInstance->fields["argCount"] = std::make_shared<NativeFunction>(
+      0, [this](Interpreter &interp, std::vector<Value> args) {
+         return Value((double)this->scriptArgs.size());
+      });
+
+   fskInstance->fields["arg"] = std::make_shared<NativeFunction>(
+      1, [this](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<double>(args[0])) return Value(std::string(""));
+         int index = (int)std::get<double>(args[0]);
+         if (index < 0 || index >= this->scriptArgs.size()) return Value(std::string(""));
+         return Value(this->scriptArgs[index]);
+      });
+
+   fskInstance->fields["mkdir"] = std::make_shared<NativeFunction>(
+     1, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+        std::string path = std::get<std::string>(args[0]);
+        std::string cmd = "mkdir -p \"" + path + "\""; 
+        int res = system(cmd.c_str());
+        return Value(res == 0);
+     });
+
+   fskInstance->fields["exists"] = std::make_shared<NativeFunction>(
+     1, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+        std::string path = std::get<std::string>(args[0]);
+        std::ifstream f(path);
+        return Value(f.good());
+     });
+
   globals->define("FSK", fskInstance);
 
   std::vector<std::string> searchPaths = {
       "std/prelude.fsk",
       "../std/prelude.fsk",
       "/usr/local/lib/fsk/std/prelude.fsk",
-      "C:/Fsk/std/prelude.fsk" // Windows support
+      "C:/Fsk/std/prelude.fsk" 
   };
   for (const auto &path : searchPaths) {
     std::ifstream file(path);
@@ -732,4 +771,11 @@ void Interpreter::visitImportStmt(Import &stmt) {
   std::vector<std::shared_ptr<Stmt>> statements = parser.parse();
 
   interpret(statements);
+}
+
+void Interpreter::setArgs(int argc, char *argv[]) {
+    scriptArgs.clear();
+    for(int i = 0; i < argc; i++) {
+        scriptArgs.push_back(std::string(argv[i]));
+    }
 }

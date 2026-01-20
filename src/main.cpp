@@ -37,7 +37,8 @@ error_t runfile(const char *path) {
   return 0;
 }
 
-void runFile(const char *path) {
+void runFile(int argc, char *argv[]) {
+  const char *path = argv[1];
   std::ifstream file(path);
   if (!file.is_open()) {
     std::cerr << "Could not open file: " << path << std::endl;
@@ -45,15 +46,20 @@ void runFile(const char *path) {
   }
   std::stringstream buffer;
   buffer << file.rdbuf();
-  run(buffer.str());
+  
+  Interpreter interpreter;
+  interpreter.setArgs(argc, argv);
+  
+  Lexer lexer(buffer.str());
+  std::vector<Token> tokens = lexer.scanTokens();
+  Parser parser(tokens);
+  std::vector<std::shared_ptr<Stmt>> statements = parser.parse();
+  interpreter.interpret(statements);
 }
 
 
 int main(int argc, char *argv[]) {
-  if (argc > 2) {
-    std::cout << "Usage: fsk [script]" << std::endl;
-    exit(1);
-  } else if (argc == 2) {
+  if (argc >= 2) {
     std::string arg = argv[1];
     if (arg == "--version" || arg == "-v") {
       std::cout << "Fsk Language v1.0.0" << std::endl;
@@ -66,12 +72,13 @@ int main(int argc, char *argv[]) {
       std::cout << "  --help, -h      Display this help message" << std::endl;
       return 0;
     }
-    runFile(argv[1]);
+    runFile(argc, argv);
   } else {
     std::cout << "FuckSociety (FSK) v1.0" << std::endl;
     std::cout << "Tapez 'exit' pour quitter." << std::endl;
     std::string line;
     Interpreter interpreter;
+    interpreter.setArgs(argc, argv);
     while (true) {
       std::cout << "fsk> ";
       if (!std::getline(std::cin, line) || line == "exit")

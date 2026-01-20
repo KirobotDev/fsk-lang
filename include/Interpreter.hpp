@@ -1,3 +1,6 @@
+/*
+* Langage is programing in C++ & 3Mounth for develop main instance of interpreter language :)
+*/
 #pragma once
 #include "Environment.hpp"
 #include "Expr.hpp"
@@ -42,14 +45,17 @@ public:
   void executeBlock(const std::vector<std::shared_ptr<Stmt>> &statements,
                     std::shared_ptr<Environment> environment);
 
+  static std::string stringify(Value value);
+  void setArgs(int argc, char *argv[]);
+
 private:
   std::shared_ptr<Environment> globals;
   std::shared_ptr<Environment> environment;
   Value lastValue;
+  std::vector<std::string> scriptArgs;
 
   Value evaluate(std::shared_ptr<Expr> expr);
   void execute(std::shared_ptr<Stmt> stmt);
   bool isTruthy(Value value);
   bool isEqual(Value a, Value b);
-  static std::string stringify(Value value);
 };

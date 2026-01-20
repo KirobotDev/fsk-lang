@@ -70,7 +70,13 @@ void Lexer::string(char quoteType) {
   while (peek() != quoteType && !isAtEnd()) {
     if (peek() == '\n')
       line++;
-    advance();
+    
+    if (peek() == '\\') {
+       advance(); 
+       if (!isAtEnd()) advance(); 
+    } else {
+       advance();
+    }
   }
 
   if (isAtEnd()) {
@@ -78,7 +84,7 @@ void Lexer::string(char quoteType) {
     return;
   }
 
-  advance();
+  advance(); 
 
   std::string value = source.substr(start + 1, current - start - 2);
   addToken(TokenType::STRING, value);
