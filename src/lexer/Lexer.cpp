@@ -66,8 +66,8 @@ char Lexer::peekNext() {
   return source[current + 1];
 }
 
-void Lexer::string() {
-  while (peek() != '"' && !isAtEnd()) {
+void Lexer::string(char quoteType) {
+  while (peek() != quoteType && !isAtEnd()) {
     if (peek() == '\n')
       line++;
     advance();
@@ -181,7 +181,10 @@ void Lexer::scanToken() {
     line++;
     break;
   case '"':
-    string();
+    string('"');
+    break;
+  case '\'':
+    string('\'');
     break;
   default:
     if (isDigit(c)) {

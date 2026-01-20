@@ -54,6 +54,18 @@ int main(int argc, char *argv[]) {
     std::cout << "Usage: fsk [script]" << std::endl;
     exit(1);
   } else if (argc == 2) {
+    std::string arg = argv[1];
+    if (arg == "--version" || arg == "-v") {
+      std::cout << "Fsk Language v1.0.0" << std::endl;
+      return 0;
+    }
+    if (arg == "--help" || arg == "-h") {
+      std::cout << "Usage: fsk [options] [script.fsk]" << std::endl;
+      std::cout << "Options:" << std::endl;
+      std::cout << "  --version, -v   Display version information" << std::endl;
+      std::cout << "  --help, -h      Display this help message" << std::endl;
+      return 0;
+    }
     runFile(argv[1]);
   } else {
     std::cout << "FuckSociety (FSK) v1.0" << std::endl;

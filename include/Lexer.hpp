@@ -23,7 +23,7 @@ private:
   bool match(char expected);
   char peek();
   char peekNext();
-  void string();
+  void string(char quoteType);
   void number();
   void identifier();
   void scanToken();

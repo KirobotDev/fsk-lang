@@ -1,5 +1,7 @@
 # Fsk Language
 
+# Website https://fsk.kirosb.fr
+
 A custom interpreted programming language written in C++.
 
 ## Features
@@ -91,7 +93,7 @@ Fsk includes a native HTTP server! You can run the self-hosted documentation:
 ./build/fsk docs/server.fsk
 ```
 
-Visit `http://localhost:8080` to see the documentation served by Fsk itself.
+Visit `http://localhost:8092` to see the documentation served by Fsk itself.
 
 ### Example Server
 

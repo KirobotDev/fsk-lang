@@ -458,7 +458,7 @@ fn handleRequest(req) {
      print "DEBUG REPL OUTPUT: [" + output + "]";
      
      return output;
-  }
+  } 
 
   if (FSK.indexOf(req, "GET /installation ") != -1) {
 

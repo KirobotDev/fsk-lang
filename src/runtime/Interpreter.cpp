@@ -303,7 +303,7 @@ Interpreter::Interpreter() {
 
   globals->define("FSK", fskInstance);
 
-  std::vector<std::string> searchPaths = {"std/prelude.fsk", "../std/prelude.fsk"};
+  std::vector<std::string> searchPaths = {"std/prelude.fsk", "../std/prelude.fsk", "/usr/local/lib/fsk/std/prelude.fsk"};
   for (const auto &path : searchPaths) {
     std::ifstream file(path);
     if (file.is_open()) {
@@ -701,7 +701,14 @@ void Interpreter::visitImportStmt(Import &stmt) {
 
   std::ifstream file(path);
   if (!file.is_open()) {
-    throw std::runtime_error("Could not open file: " + path);
+      std::string systemPath = "/usr/local/lib/fsk/" + path + ".fsk";
+      file.open(systemPath);
+      if (!file.is_open()) {
+        file.open(path + ".fsk");
+        if (!file.is_open()) {
+            throw std::runtime_error("Could not open file: " + path);
+        }
+      }
   }
 
   std::stringstream buffer;
