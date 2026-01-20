@@ -105,6 +105,26 @@ fn handler(req) {
 FSK.startServer(3000, handler);
 ```
 
+### Linux Installation
+```bash 
+sudo mkdir -p /usr/local/lib/fsk/
+sudo cp -r std /usr/local/lib/fsk/
+sudo cp build/fsk /usr/local/bin/
+```
+
+### Windows Installation (PowerShell)
+Run as Administrator:
+```powershell
+New-Item -ItemType Directory -Force -Path "C:\Fsk"
+
+Copy-Item -Recurse -Force "std" "C:\Fsk\"
+
+[System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Fsk", "User")
+```
+> Note: You will need to manually compile or download `fsk.exe` and place it in `C:\Fsk\`.
+
+
+
 ## Anonymous Functions (Lambdas)
 
 Fsk supports anonymous functions, useful for callbacks and functional programming.
