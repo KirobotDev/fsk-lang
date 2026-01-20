@@ -110,6 +110,11 @@ FSK.startServer(3000, handler);
 sudo mkdir -p /usr/local/lib/fsk/
 sudo cp -r std /usr/local/lib/fsk/
 sudo cp build/fsk /usr/local/bin/
+
+sudo cp -r fpm /usr/local/lib/fsk/
+echo '#!/bin/bash' | sudo tee /usr/local/bin/fpm
+echo 'fsk /usr/local/lib/fsk/fpm/fpm.fsk "$@"' | sudo tee -a /usr/local/bin/fpm
+sudo chmod +x /usr/local/bin/fpm
 ```
 
 ### Windows Installation (PowerShell)
@@ -120,6 +125,9 @@ New-Item -ItemType Directory -Force -Path "C:\Fsk"
 Copy-Item -Recurse -Force "std" "C:\Fsk\"
 
 [System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Fsk", "User")
+
+Copy-Item -Recurse -Force "fpm" "C:\Fsk\"
+Set-Content -Path "C:\Fsk\fpm.bat" -Value '@fsk C:\Fsk\fpm\fpm.fsk %*'
 ```
 > Note: You will need to manually compile or download `fsk.exe` and place it in `C:\Fsk\`.
 
