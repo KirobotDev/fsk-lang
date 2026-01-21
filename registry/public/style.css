@@ -1,0 +1,110 @@
+:root {
+    --bg: #0a0a0f;
+    --text: #e0e0e0;
+    --neon-cyan: #00f3ff;
+    --neon-pink: #d900ff;
+    --glass: rgba(255, 255, 255, 0.05);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2rem;
+    overflow-x: hidden;
+}
+
+h1 {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan);
+    margin-bottom: 0.5rem;
+}
+
+.cursor {
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+input {
+    background: var(--glass);
+    border: 1px solid #333;
+    color: var(--neon-cyan);
+    padding: 0.8rem;
+    font-family: inherit;
+    width: 100%;
+    margin-bottom: 1rem;
+    outline: none;
+    transition: 0.3s;
+}
+
+input:focus {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+button {
+    background: transparent;
+    border: 1px solid var(--neon-pink);
+    color: var(--neon-pink);
+    padding: 0.8rem 2rem;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    text-transform: uppercase;
+    width: 100%;
+}
+
+button:hover {
+    background: var(--neon-pink);
+    color: #fff;
+    box-shadow: 0 0 20px var(--neon-pink);
+}
+
+.package-card {
+    border: 1px solid #333;
+    background: var(--glass);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    border-left: 3px solid var(--neon-cyan);
+}
+
+.package-card h3 {
+    color: var(--neon-cyan);
+    margin-bottom: 0.5rem;
+}
+
+.package-url {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.5rem;
+    display: block;
+}
+
+.publish-section {
+    margin-top: 4rem;
+    border-top: 1px dashed #333;
+    padding-top: 2rem;
+}
+
+.publish-section h2 {
+    color: var(--neon-pink);
+    margin-bottom: 1rem;
+}

@@ -1,10 +1,14 @@
+
 fn printHelp() {
     print "Usage: fpm <command> [args]";
     print "Commands:";
     print "  init            Initialize a new Fsk package";
-    print "  install <url>   Install a package from a Git URL";
+    print "  install <name>  Install a package from Registry";
+    print "  install <url>   Install a package from Git URL";
+    print "  publish         Publish current package to Registry";
 }
 
+let REGISTRY = "http://localhost:3000/api";
 let argCount = FSK.argCount();
 
 if (argCount < 2) {
@@ -20,24 +24,66 @@ if (argCount < 2) {
              writeFile("package.fsk", content);
              print "Created package.fsk";
         }
-    } else if (command == "install") {
+    } 
+    else if (command == "install") {
         if (argCount < 3) {
-            print "Usage: fpm install <git_url>";
+            print "Usage: fpm install <name_or_url>";
         } else {
-            let url = FSK.arg(3);
-            print "Installing " + url + "...";
+            let target = FSK.arg(3);
+            let gitUrl = target;
+            let isRegistry = true;
 
-            if (FSK.exists("fsk_modules") == false) {
-                FSK.mkdir("fsk_modules");
+            if (FSK.indexOf(target, "http") == 0) { isRegistry = false; }
+            if (FSK.indexOf(target, "git@") == 0) { isRegistry = false; }
+
+            if (isRegistry) {
+                print "Looking for '" + target + "' in registry...";
+                let json = FSK.shell("curl -s " + REGISTRY + "/packages/" + target);
+                
+                let marker = '"url":"';
+                let idx = FSK.indexOf(json, marker);
+                
+                if (idx == -1) {
+                     print "Error: Package not found in registry (or API error).";
+                     print "Raw response: " + json;
+                     gitUrl = ""; // Fail
+                } else {
+                     let start = idx + FSK.length(marker);
+                     let rest = FSK.substr(json, start, 500); // look ahead
+                     let end = FSK.indexOf(rest, '"');
+                     gitUrl = FSK.substr(json, start, end);
+                     print "Found source: " + gitUrl;
+                }
             }
 
-            let name = "package_" + FSK.random(1, 1000); 
-            let cmd = "cd fsk_modules && git clone " + url;
-            let res = FSK.shell(cmd);
-            print res;
-            print "Done.";
+            if (gitUrl != "") {
+                if (FSK.exists("fsk_modules") == false) {
+                    FSK.mkdir("fsk_modules");
+                }
+                print "Cloning into fsk_modules...";
+                let cmd = "cd fsk_modules && git clone " + gitUrl;
+                let res = FSK.shell(cmd);
+                print res;
+                print "Package installed successfully.";
+            }
         }
-    } else {
+    } 
+    else if (command == "publish") {
+        print "--- FPM PUBLISH ---";
+        let name = input("Package Name: ");
+        let url = input("Git Repository URL: ");
+        let desc = input("Description: ");
+        let author = input("Author: ");
+
+        let payload = '{"name":"' + name + '","url":"' + url + '","description":"' + desc + '","author":"' + author + '"}';
+        let curlCmd = "curl -s -X POST -H 'Content-Type: application/json' -d '" + payload + "' " + REGISTRY + "/publish";
+        
+
+        print "Sending to registry...";
+        let response = FSK.shell(curlCmd);
+        print "Response: " + response;
+    } 
+    else {
         print "Unknown command: " + command;
         printHelp();
     }
