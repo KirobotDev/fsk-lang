@@ -4,36 +4,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fsk Registry</title>
+    <title>Fsk - Registry</title>
+    <link rel="icon" href="https://i.postimg.cc/ZqxPX36z/image.png">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+
+        window.onload = function () {
+            const saved = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+        };
+    </script>
 </head>
 
 <body>
+
+    <header>
+        <a href="https://fsk.kirosb.fr" class="logo" style="display:flex; align-items:center; gap:10px;">
+            <img src="https://i.postimg.cc/ZqxPX36z/image.png" style="height:32px; width:32px;">
+            <span>Fsk</span>
+        </a>
+        <nav>
+            <a href="https://fsk.kirosb.fr/installation">Install</a>
+            <a href="https://fsk.kirosb.fr/syntax">Docs</a>
+            <a href="/">Registry</a>
+
+            <button class="icon-btn" onclick="toggleTheme();">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zm-8 8.98c-3.13 0-5.67-2.54-5.67-5.67S8.87 6.33 12 6.33 17.67 8.87 17.67 12 15.13 17.67 12 17.67z" />
+                </svg>
+            </button>
+        </nav>
+    </header>
+
     <div class="container">
-        <header>
-            <h1>FSK_REGISTRY<span class="cursor">_</span></h1>
-            <p>> The official package repository for the Fsk language.</p>
-        </header>
+        <h1>Fsk Package Registry</h1>
+        <p>> Explore and share packages for the Fsk ecosystem.</p>
 
         <section class="search-section">
-            <input type="text" id="search" placeholder="Search packages..." oninput="filterPackages()">
+            <input type="text" id="search" placeholder="SEARCH_PACKAGES..." oninput="filterPackages()">
         </section>
 
         <section class="package-list" id="packageList">
+            <!-- Packages will be rendered here -->
         </section>
 
         <section class="publish-section">
-            <h2>> PUBLISH_PACKAGE</h2>
+            <h2>PUBLISH_PACKAGE</h2>
+            <p>Share your code with the world.</p>
             <form id="publishForm">
-                <input type="text" id="pName" placeholder="Package Name" required>
-                <input type="url" id="pUrl" placeholder="Git URL (e.g. github.com/...)" required>
-                <input type="text" id="pDesc" placeholder="Description">
-                <input type="text" id="pAuthor" placeholder="Author">
+                <input type="text" id="pName" placeholder="PACKAGE_NAME" required>
+                <input type="url" id="pUrl" placeholder="GIT_URL (e.g. github.com/...)" required>
+                <input type="text" id="pDesc" placeholder="DESCRIPTION">
+                <input type="text" id="pAuthor" placeholder="AUTHOR">
                 <button type="submit">UPLOAD_TO_NETWORK</button>
             </form>
         </section>
     </div>
+
+    <footer style="text-align:center; padding: 2rem; border-top: 4px solid var(--border-color); margin-top: 4rem;">
+        <p>FSK_REGISTRY_V1.0.0</p>
+    </footer>
 
     <script src="app.js"></script>
 </body>
