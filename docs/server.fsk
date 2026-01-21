@@ -467,9 +467,35 @@ fn handleRequest(req) {
           " + sidebar + "
           <main class='content'>
               <h1>Installation</h1>
-              <p>Forge the compiler from source.</p>
-              <h3>Prerequisites</h3>
-              <p>Ensure you have <b>CMake</b> and a C++ compiler.</p>
+              
+              <h3>1. Global Installation (After Build)</h3>
+              <p>Install Fsk and FPM system-wide to access them globally.</p>
+
+              <h4>Linux (Bash)</h4>
+              <pre>
+sudo mkdir -p /usr/local/lib/fsk/
+sudo cp -r std /usr/local/lib/fsk/
+sudo cp build/fsk /usr/local/bin/
+
+sudo cp -r fpm /usr/local/lib/fsk/
+echo '#!/bin/bash' | sudo tee /usr/local/bin/fpm
+echo 'fsk /usr/local/lib/fsk/fpm/fpm.fsk &quot;$@&quot;' | sudo tee -a /usr/local/bin/fpm
+sudo chmod +x /usr/local/bin/fpm
+              </pre>
+
+              <h4>Windows (PowerShell)</h4>
+              <p>Run as Administrator:</p>
+              <pre>
+New-Item -ItemType Directory -Force -Path 'C:/Fsk'
+Copy-Item -Recurse -Force 'std' 'C:/Fsk/'
+[System.Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:/Fsk', 'User')
+
+Copy-Item -Recurse -Force 'fpm' 'C:/Fsk/'
+Set-Content -Path 'C:/Fsk/fpm.bat' -Value '@fsk C:/Fsk/fpm/fpm.fsk %*'
+              </pre>
+              <small>Place fsk.exe in C:/Fsk/</small>
+
+              <h3>2. Build from Source</h3>
               <pre>
 git clone https://github.com/kirobotdev/fsk-lang
 cd fsk-lang
@@ -477,8 +503,6 @@ mkdir build && cd build
 cmake ..
 make
               </pre>
-              <h3>Usage</h3>
-              <pre>./fsk your_script.fsk</pre>
           </main>
       </div>", false);
   }
@@ -491,8 +515,8 @@ make
               <h1>Language Syntax</h1>
               <h3>Variables</h3>
               <pre>
-let x = 10;      // Mutable
-const y = 20;    // Immutable
+let x = 10;      
+const y = 20;   
               </pre>
               <h3>Functions</h3>
               <pre>
@@ -539,9 +563,9 @@ l.forEach(fn(val) {
           <main class='content'>
               <h1>Math Module</h1>
               <pre>
-print Math.max(10, 20); // 20
-print Math.pow(2, 3);   // 8
-print Math.abs(-50);    // 50
+print Math.max(10, 20); 
+print Math.pow(2, 3);  
+print Math.abs(-50);    
               </pre>
           </main>
       </div>", false);

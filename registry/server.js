@@ -64,5 +64,5 @@ app.post('/api/publish', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Registry running on http://localhost:${PORT}`);
+    console.log(`Registry running (accessible via https://fpm.kirosb.fr)`);
 });

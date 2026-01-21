@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8059/api';
+const API_URL = 'https://fpm.kirosb.fr/api';
 let allPackages = [];
 
 async function fetchPackages() {
@@ -14,25 +14,40 @@ async function fetchPackages() {
 
 function renderPackages(list) {
     const container = document.getElementById('packageList');
-    container.innerHTML = '';
+    container.replaceChildren();
 
     if (list.length === 0) {
-        container.innerHTML = '<p style="color: grey;">> No packages found.</p>';
+        const p = document.createElement('p');
+        p.style.color = 'grey';
+        p.textContent = '> No packages found.';
+        container.appendChild(p);
         return;
     }
 
     list.forEach(pkg => {
         const date = new Date(pkg.created_at).toLocaleDateString();
-        const html = `
-            <div class="package-card">
-                <h3>${pkg.name}</h3>
-                <p>${pkg.description || 'No description provided.'}</p>
-                <code class="package-url">fpm install ${pkg.name}</code>
-                <br>
-                <small style="color: #666;">By ${pkg.author || 'Anonymous'} | ${date}</small>
-            </div>
-        `;
-        container.innerHTML += html;
+
+        const card = document.createElement('div');
+        card.className = 'package-card';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = pkg.name;
+
+        const p = document.createElement('p');
+        p.textContent = pkg.description || 'No description provided.';
+
+        const code = document.createElement('code');
+        code.className = 'package-url';
+        code.textContent = `fpm install ${pkg.name}`;
+
+        const br = document.createElement('br');
+
+        const small = document.createElement('small');
+        small.style.color = '#666';
+        small.textContent = `By ${pkg.author || 'Anonymous'} | ${date}`;
+
+        card.append(h3, p, code, br, small);
+        container.appendChild(card);
     });
 }
 

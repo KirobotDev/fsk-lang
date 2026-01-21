@@ -8,7 +8,7 @@ fn printHelp() {
     print "  publish         Publish current package to Registry";
 }
 
-let REGISTRY = "http://localhost:3000/api";
+let REGISTRY = "https://fpm.kirosb.fr/api";
 let argCount = FSK.argCount();
 
 if (argCount < 2) {
