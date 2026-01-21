@@ -5,3 +5,5 @@ build/
 *.a
 bin/
 fsk_modules/
+**/packages.db
+*.db
