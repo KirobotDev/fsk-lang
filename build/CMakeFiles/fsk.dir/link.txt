@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/fsk.dir/src/main.cpp.o CMakeFiles/fsk.dir/src/lexer/Lexer.cpp.o CMakeFiles/fsk.dir/src/parser/Parser.cpp.o CMakeFiles/fsk.dir/src/runtime/Interpreter.cpp.o CMakeFiles/fsk.dir/src/runtime/Callable.cpp.o -o fsk 

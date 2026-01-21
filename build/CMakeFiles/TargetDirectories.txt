@@ -1,0 +1,3 @@
+/home/sionuk/Bureau/Fsk Language (Copie)/build/CMakeFiles/fsk.dir
+/home/sionuk/Bureau/Fsk Language (Copie)/build/CMakeFiles/edit_cache.dir
+/home/sionuk/Bureau/Fsk Language (Copie)/build/CMakeFiles/rebuild_cache.dir

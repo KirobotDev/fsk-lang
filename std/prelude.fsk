@@ -1,4 +1,0 @@
-import "std/list.fsk";
-import "std/math.fsk";
-
-print "FSK Standard Library Loaded.";

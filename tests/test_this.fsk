@@ -1,6 +1,0 @@
-class T {
-    fn m() { print this }
-}
-let t = T()
-print t
-t.m()

@@ -1,1 +1,8 @@
-{\n  \"name\": \"my-project\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {}\n}
+{
+  "name": "fpm",
+  "version": "1.0.0",
+  "description": "The official Fsk Package Manager",
+  "author": "KirobotDev",
+  "main": "fpm.fsk",
+  "dependencies": {}
+}
