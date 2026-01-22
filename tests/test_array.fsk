@@ -1,0 +1,14 @@
+let arr = [1, 2, 3];
+print "Initial array: " + arr;
+print "Length: " + arr.length;
+print "Element at index 1: " + arr[1];
+
+arr[1] = 20;
+print "After modification: " + arr;
+
+arr.push(4);
+print "After push(4): " + arr;
+
+let last = arr.pop();
+print "Popped: " + last;
+print "Final array: " + arr;

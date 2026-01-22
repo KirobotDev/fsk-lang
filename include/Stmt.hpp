@@ -23,6 +23,7 @@ struct Class;
 struct Async;
 struct Try;
 struct Throw;
+struct For;
 struct Import;
 
 struct StmtVisitor {
@@ -36,6 +37,7 @@ struct StmtVisitor {
   virtual void visitFunctionStmt(Function &stmt) = 0;
   virtual void visitReturnStmt(Return &stmt) = 0;
   virtual void visitClassStmt(Class &stmt) = 0;
+  virtual void visitForStmt(For &stmt) = 0;
   virtual void visitTryStmt(Try &stmt) = 0;
   virtual void visitThrowStmt(Throw &stmt) = 0;
   virtual void visitImportStmt(Import &stmt) = 0;
@@ -151,6 +153,19 @@ struct Throw : Stmt {
   Throw(Token keyword, std::shared_ptr<Expr> value)
       : keyword(keyword), value(value) {}
   void accept(StmtVisitor &visitor) override { visitor.visitThrowStmt(*this); }
+};
+
+struct For : Stmt {
+  std::shared_ptr<Stmt> initializer;
+  std::shared_ptr<Expr> condition;
+  std::shared_ptr<Expr> increment;
+  std::shared_ptr<Stmt> body;
+
+  For(std::shared_ptr<Stmt> initializer, std::shared_ptr<Expr> condition,
+      std::shared_ptr<Expr> increment, std::shared_ptr<Stmt> body)
+      : initializer(initializer), condition(condition), increment(increment),
+        body(body) {}
+  void accept(StmtVisitor &visitor) override { visitor.visitForStmt(*this); }
 };
 
 struct Import : Stmt {

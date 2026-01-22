@@ -243,6 +243,8 @@ std::shared_ptr<Expr> Parser::assignment() {
       return std::make_shared<Assign>(v->name, value);
     } else if (Get *g = dynamic_cast<Get *>(expr.get())) {
       return std::make_shared<Set>(g->object, g->name, value);
+    } else if (IndexExpr *i = dynamic_cast<IndexExpr *>(expr.get())) {
+      return std::make_shared<IndexSet>(i->callee, i->index, value);
     }
   }
   return expr;
@@ -334,6 +336,10 @@ std::shared_ptr<Expr> Parser::call() {
       Token name =
           consume(TokenType::IDENTIFIER, "Expect property name after '.'.");
       expr = std::make_shared<Get>(expr, name);
+    } else if (match({TokenType::LEFT_BRACKET})) {
+      std::shared_ptr<Expr> index = expression();
+      Token bracket = consume(TokenType::RIGHT_BRACKET, "Expect ']' after index.");
+      expr = std::make_shared<IndexExpr>(expr, bracket, index);
     } else {
       break;
     }
@@ -396,6 +402,17 @@ std::shared_ptr<Expr> Parser::primary() {
     consume(TokenType::LEFT_BRACE, "Expect '{' before lambda body.");
     std::vector<std::shared_ptr<Stmt>> body = block();
     return std::make_shared<FunctionExpr>(parameters, body);
+  }
+
+  if (match({TokenType::LEFT_BRACKET})) {
+    std::vector<std::shared_ptr<Expr>> elements;
+    if (!check(TokenType::RIGHT_BRACKET)) {
+      do {
+        elements.push_back(expression());
+      } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
+    return std::make_shared<Array>(elements);
   }
 
   if (match({TokenType::LEFT_PAREN})) {

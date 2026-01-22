@@ -1,0 +1,10 @@
+let s = "  apple,banana,cherry  ";
+print "Original: [" + s + "]";
+print "Length: " + s.length;
+
+let trimmed = s.trim();
+print "Trimmed: [" + trimmed + "]";
+
+let parts = trimmed.split(",");
+print "Split parts: " + parts;
+print "Part 0: " + parts[0];

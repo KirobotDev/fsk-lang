@@ -1,6 +1,8 @@
 # Fsk Language
 
-# Website https://fsk.kirosb.fr
+# Website docs https://fsk.kirosb.fr
+
+# FPM Gestionary package Website https://fpm.kirosb.fr
 
 A custom interpreted programming language written in C++.
 

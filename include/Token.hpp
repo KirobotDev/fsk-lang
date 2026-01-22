@@ -19,6 +19,9 @@ enum class TokenType {
   ARROW, 
   COLON, 
 
+  LEFT_BRACKET,
+  RIGHT_BRACKET,
+
   BANG,
   BANG_EQUAL,
   EQUAL,
@@ -63,9 +66,16 @@ enum class TokenType {
 
 struct Callable;
 struct FSKInstance;
+struct FSKArray;
 using Value =
     std::variant<std::string, double, bool, std::monostate,
-                 std::shared_ptr<Callable>, std::shared_ptr<FSKInstance>>;
+                 std::shared_ptr<Callable>, std::shared_ptr<FSKInstance>,
+                 std::shared_ptr<FSKArray>>;
+
+struct FSKArray {
+  std::vector<Value> elements;
+  FSKArray(std::vector<Value> elements) : elements(elements) {}
+};
 
 struct Token {
   TokenType type;

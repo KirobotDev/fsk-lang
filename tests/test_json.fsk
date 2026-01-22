@@ -1,0 +1,8 @@
+let data = [1, "hello", true, nil];
+let jsonStr = JSON.stringify(data);
+print "JSON String: " + jsonStr;
+
+let parsed = JSON.parse(jsonStr);
+print "Parsed Data: " + parsed;
+
+print "Parsed[1]: " + parsed[1];

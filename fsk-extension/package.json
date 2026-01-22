@@ -1,15 +1,15 @@
 {
     "name": "fsk-lang",
-    "displayName": "Fsk",
-    "description": "Fsk Language Support (Syntax Highlighting & Icons)",
+    "displayName": "Fsk Language Support (Antigravity Edition)",
+    "description": "Syntax highlighting and language support for the Fsk programming language.",
     "version": "1.0.0",
+    "publisher": "kirobot",
     "engines": {
-        "vscode": "^1.75.0"
+        "vscode": "^1.60.0"
     },
     "categories": [
         "Programming Languages"
     ],
-    "icon": "logo.png",
     "contributes": {
         "languages": [
             {

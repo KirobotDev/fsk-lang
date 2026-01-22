@@ -23,6 +23,7 @@ public:
   void visitFunctionStmt(Function &stmt) override;
   void visitReturnStmt(Return &stmt) override;
   void visitClassStmt(Class &stmt) override;
+  void visitForStmt(For &stmt) override;
   void visitTryStmt(Try &stmt) override;
   void visitThrowStmt(Throw &stmt) override;
   void visitImportStmt(Import &stmt) override;
@@ -40,12 +41,17 @@ public:
   void visitThisExpr(This &expr) override;
   void visitSuperExpr(Super &expr) override;
   void visitAwaitExpr(Await &expr) override;
+  void visitArrayExpr(Array &expr) override;
+  void visitIndexExpr(IndexExpr &expr) override;
+  void visitIndexSetExpr(IndexSet &expr) override;
   void visitFunctionExpr(FunctionExpr &expr) override;
 
   void executeBlock(const std::vector<std::shared_ptr<Stmt>> &statements,
                     std::shared_ptr<Environment> environment);
 
   static std::string stringify(Value value);
+  std::string jsonStringify(Value value);
+  Value jsonParse(std::string source);
   void setArgs(int argc, char *argv[]);
 
 private:

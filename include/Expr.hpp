@@ -25,6 +25,9 @@ struct Set;
 struct This;
 struct Super;
 struct Await;
+struct Array;
+struct IndexExpr;
+struct IndexSet;
 
 struct ExprVisitor {
   virtual void visitBinaryExpr(Binary &expr) = 0;
@@ -40,6 +43,9 @@ struct ExprVisitor {
   virtual void visitThisExpr(This &expr) = 0;
   virtual void visitSuperExpr(Super &expr) = 0;
   virtual void visitAwaitExpr(Await &expr) = 0;
+  virtual void visitArrayExpr(Array &expr) = 0;
+  virtual void visitIndexExpr(IndexExpr &expr) = 0;
+  virtual void visitIndexSetExpr(IndexSet &expr) = 0;
   virtual void visitFunctionExpr(FunctionExpr &expr) = 0;
 };
 
@@ -145,6 +151,30 @@ struct Await : Expr {
   Await(Token keyword, std::shared_ptr<Expr> expression)
       : keyword(keyword), expression(expression) {}
   void accept(ExprVisitor &visitor) override { visitor.visitAwaitExpr(*this); }
+};
+
+struct Array : Expr {
+  std::vector<std::shared_ptr<Expr>> elements;
+  Array(std::vector<std::shared_ptr<Expr>> elements) : elements(elements) {}
+  void accept(ExprVisitor &visitor) override { visitor.visitArrayExpr(*this); }
+};
+
+struct IndexExpr : Expr {
+  std::shared_ptr<Expr> callee;
+  Token bracket;
+  std::shared_ptr<Expr> index;
+  IndexExpr(std::shared_ptr<Expr> callee, Token bracket, std::shared_ptr<Expr> index)
+      : callee(callee), bracket(bracket), index(index) {}
+  void accept(ExprVisitor &visitor) override { visitor.visitIndexExpr(*this); }
+};
+
+struct IndexSet : Expr {
+    std::shared_ptr<Expr> callee;
+    std::shared_ptr<Expr> index;
+    std::shared_ptr<Expr> value;
+    IndexSet(std::shared_ptr<Expr> callee, std::shared_ptr<Expr> index, std::shared_ptr<Expr> value)
+        : callee(callee), index(index), value(value) {}
+    void accept(ExprVisitor &visitor) override { visitor.visitIndexSetExpr(*this); }
 };
 
 struct FunctionExpr : Expr {

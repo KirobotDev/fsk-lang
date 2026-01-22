@@ -340,7 +340,33 @@ Interpreter::Interpreter() {
         return Value(f.good());
      });
 
+   fskInstance->fields["fetch"] = std::make_shared<NativeFunction>(
+     1, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("fetch attend une URL.");
+        std::string url = std::get<std::string>(args[0]);
+        std::string cmd = "curl -s \"" + url + "\"";
+        std::array<char, 128> buffer;
+        std::string result;
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (!pipe) return Value(std::string("Error: fetch failed"));
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+           result += buffer.data();
+        }
+        return Value(result);
+     });
+
   globals->define("FSK", fskInstance);
+
+  auto jsonClass = std::make_shared<FSKClass>("JSON", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto jsonInstance = std::make_shared<FSKInstance>(jsonClass);
+  jsonInstance->fields["stringify"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      return Value(interp.jsonStringify(args[0]));
+  });
+  jsonInstance->fields["parse"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("JSON.parse expect string");
+      return interp.jsonParse(std::get<std::string>(args[0]));
+  });
+  globals->define("JSON", jsonInstance);
 
   std::vector<std::string> searchPaths = {
       "std/prelude.fsk",
@@ -487,6 +513,14 @@ void Interpreter::visitTryStmt(Try &stmt) {
         std::make_shared<Environment>(this->environment);
     env->define(stmt.catchName.lexeme, Value(std::string(error.what())));
     executeBlock({stmt.catchBranch}, env);
+  }
+}
+
+void Interpreter::visitForStmt(For &stmt) {
+  if (stmt.initializer != nullptr) execute(stmt.initializer);
+  while (isTruthy(evaluate(stmt.condition))) {
+    execute(stmt.body);
+    if (stmt.increment != nullptr) evaluate(stmt.increment);
   }
 }
 
@@ -646,15 +680,87 @@ void Interpreter::visitCallExpr(Call &expr) {
     throw std::runtime_error("Can only call functions and classes.");
   }
 }
-
 void Interpreter::visitGetExpr(Get &expr) {
   Value object = evaluate(expr.object);
   if (std::holds_alternative<std::shared_ptr<FSKInstance>>(object)) {
     lastValue = std::get<std::shared_ptr<FSKInstance>>(object)->get(expr.name);
     return;
   }
+  if (std::holds_alternative<std::shared_ptr<FSKArray>>(object)) {
+    auto arr = std::get<std::shared_ptr<FSKArray>>(object);
+    if (expr.name.lexeme == "length") {
+      lastValue = (double)arr->elements.size();
+      return;
+    }
+    if (expr.name.lexeme == "push") {
+      lastValue = std::make_shared<NativeFunction>(
+          1, [arr](Interpreter &interp, std::vector<Value> args) {
+            arr->elements.push_back(args[0]);
+            return args[0];
+          });
+      return;
+    }
+    if (expr.name.lexeme == "pop") {
+      lastValue = std::make_shared<NativeFunction>(
+          0, [arr](Interpreter &interp, std::vector<Value> args) {
+            if (arr->elements.empty())
+              return Value(std::monostate{});
+            Value v = arr->elements.back();
+            arr->elements.pop_back();
+            return v;
+          });
+      return;
+    }
+  }
 
-  throw std::runtime_error("Seules les instances ont des propriétés.");
+  if (std::holds_alternative<std::string>(object)) {
+    std::string s = std::get<std::string>(object);
+    if (expr.name.lexeme == "length") {
+      lastValue = (double)s.length();
+      return;
+    }
+    if (expr.name.lexeme == "split") {
+      lastValue = std::make_shared<NativeFunction>(
+          1, [s](Interpreter &interp, std::vector<Value> args) {
+            if (!std::holds_alternative<std::string>(args[0]))
+              throw std::runtime_error("split attend une chaîne.");
+            std::string delim = std::get<std::string>(args[0]);
+            std::vector<Value> parts;
+            size_t start = 0, end = 0;
+            while ((end = s.find(delim, start)) != std::string::npos) {
+              parts.push_back(s.substr(start, end - start));
+              start = end + delim.length();
+            }
+            parts.push_back(s.substr(start));
+            return std::make_shared<FSKArray>(parts);
+          });
+      return;
+    }
+    if (expr.name.lexeme == "trim") {
+      lastValue = std::make_shared<NativeFunction>(
+          0, [s](Interpreter &interp, std::vector<Value> args) {
+            std::string res = s;
+            res.erase(0, res.find_first_not_of(" \n\r\t"));
+            res.erase(res.find_last_not_of(" \n\r\t") + 1);
+            return res;
+          });
+      return;
+    }
+    if (expr.name.lexeme == "substr") {
+      lastValue = std::make_shared<NativeFunction>(
+          2, [s](Interpreter &interp, std::vector<Value> args) {
+              if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]))
+                  throw std::runtime_error("substr attend (start, len).");
+              int start = (int)std::get<double>(args[0]);
+              int len = (int)std::get<double>(args[1]);
+              if (start < 0 || (size_t)start >= s.length()) return Value(std::string(""));
+              return Value(s.substr(start, len));
+          });
+      return;
+    }
+  }
+
+  throw std::runtime_error("Seules les instances, tableaux et chaînes ont des propriétés.");
 }
 
 void Interpreter::visitSetExpr(Set &expr) {
@@ -707,6 +813,69 @@ void Interpreter::visitFunctionExpr(FunctionExpr &expr) {
   lastValue = callable;
 }
 
+void Interpreter::visitArrayExpr(Array &expr) {
+  std::vector<Value> elements;
+  for (const auto &element : expr.elements) {
+    elements.push_back(evaluate(element));
+  }
+  lastValue = std::make_shared<FSKArray>(elements);
+}
+
+void Interpreter::visitIndexExpr(IndexExpr &expr) {
+  Value callee = evaluate(expr.callee);
+  Value index = evaluate(expr.index);
+
+  if (std::holds_alternative<std::shared_ptr<FSKArray>>(callee)) {
+    if (!std::holds_alternative<double>(index)) {
+      throw std::runtime_error("Index must be a number.");
+    }
+    auto arr = std::get<std::shared_ptr<FSKArray>>(callee);
+    int idx = (int)std::get<double>(index);
+    if (idx < 0 || (size_t)idx >= arr->elements.size()) {
+       throw std::runtime_error("Index out of bounds.");
+    }
+    lastValue = arr->elements[idx];
+    return;
+  }
+  
+  if (std::holds_alternative<std::string>(callee)) {
+    if (!std::holds_alternative<double>(index)) {
+        throw std::runtime_error("Index must be a number.");
+    }
+    std::string s = std::get<std::string>(callee);
+    int idx = (int)std::get<double>(index);
+    if (idx < 0 || (size_t)idx >= s.length()) {
+        throw std::runtime_error("Index out of bounds.");
+    }
+    lastValue = std::string(1, s[idx]);
+    return;
+  }
+
+  throw std::runtime_error("Only arrays and strings can be indexed.");
+}
+
+void Interpreter::visitIndexSetExpr(IndexSet &expr) {
+  Value callee = evaluate(expr.callee);
+  Value index = evaluate(expr.index);
+  Value value = evaluate(expr.value);
+
+  if (std::holds_alternative<std::shared_ptr<FSKArray>>(callee)) {
+    if (!std::holds_alternative<double>(index)) {
+      throw std::runtime_error("Index must be a number.");
+    }
+    auto arr = std::get<std::shared_ptr<FSKArray>>(callee);
+    int idx = (int)std::get<double>(index);
+    if (idx < 0 || (size_t)idx >= arr->elements.size()) {
+       throw std::runtime_error("Index out of bounds.");
+    }
+    arr->elements[idx] = value;
+    lastValue = value;
+    return;
+  }
+
+  throw std::runtime_error("Only arrays can have indexed assignments.");
+}
+
 bool Interpreter::isTruthy(Value value) {
   if (std::holds_alternative<std::monostate>(value))
     return false;
@@ -733,6 +902,16 @@ std::string Interpreter::stringify(Value value) {
     return std::get<std::string>(value);
   if (std::holds_alternative<std::shared_ptr<FSKInstance>>(value))
     return std::get<std::shared_ptr<FSKInstance>>(value)->toString();
+  if (std::holds_alternative<std::shared_ptr<FSKArray>>(value)) {
+    auto arr = std::get<std::shared_ptr<FSKArray>>(value);
+    std::string res = "[";
+    for (size_t i = 0; i < arr->elements.size(); i++) {
+      res += stringify(arr->elements[i]);
+      if (i < arr->elements.size() - 1) res += ", ";
+    }
+    res += "]";
+    return res;
+  }
   return "Object";
 }
 
@@ -745,19 +924,27 @@ void Interpreter::visitImportStmt(Import &stmt) {
 
   std::ifstream file(path);
   if (!file.is_open()) {
-      std::string systemPath = "/usr/local/lib/fsk/" + path + ".fsk";
-      file.open(systemPath);
-      
-      if (!file.is_open()) {
-           systemPath = "C:/Fsk/" + path + ".fsk";
-           file.open(systemPath);
+      std::string attempt = path;
+      if (attempt.find(".fsk") == std::string::npos) attempt += ".fsk";
+
+      std::vector<std::string> searchPaths = {
+          attempt,
+          "std/" + attempt,
+          "../" + attempt,
+          "../std/" + attempt,
+          "/usr/local/lib/fsk/" + attempt,
+          "/usr/local/lib/fsk/std/" + attempt,
+          "C:/Fsk/" + attempt,
+          "C:/Fsk/std/" + attempt
+      };
+
+      for (const auto& s : searchPaths) {
+          file.open(s);
+          if (file.is_open()) break;
       }
 
       if (!file.is_open()) {
-        file.open(path + ".fsk");
-        if (!file.is_open()) {
-            throw std::runtime_error("Could not open file: " + path);
-        }
+          throw std::runtime_error("Could not open file: " + path);
       }
   }
 
@@ -778,4 +965,69 @@ void Interpreter::setArgs(int argc, char *argv[]) {
     for(int i = 0; i < argc; i++) {
         scriptArgs.push_back(std::string(argv[i]));
     }
+}
+
+std::string Interpreter::jsonStringify(Value value) {
+  if (std::holds_alternative<std::monostate>(value)) return "null";
+  if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
+  if (std::holds_alternative<double>(value)) {
+    std::string s = std::to_string(std::get<double>(value));
+    if (s.find(".000000") != std::string::npos) s = s.substr(0, s.find(".000000"));
+    return s;
+  }
+  if (std::holds_alternative<std::string>(value)) {
+    return "\"" + std::get<std::string>(value) + "\"";
+  }
+  if (std::holds_alternative<std::shared_ptr<FSKArray>>(value)) {
+    auto arr = std::get<std::shared_ptr<FSKArray>>(value);
+    std::string res = "[";
+    for (size_t i = 0; i < arr->elements.size(); i++) {
+        res += jsonStringify(arr->elements[i]);
+        if (i < arr->elements.size() - 1) res += ",";
+    }
+    res += "]";
+    return res;
+  }
+  return "null";
+}
+
+Value Interpreter::jsonParse(std::string source) {
+    size_t pos_parse = 0;
+    std::function<Value()> parseValue = [&]() -> Value {
+        while (pos_parse < source.length() && isspace(source[pos_parse])) pos_parse++;
+        if (pos_parse >= source.length()) return std::monostate{};
+
+        if (source[pos_parse] == '"') {
+            pos_parse++;
+            size_t start = pos_parse;
+            while (pos_parse < source.length() && source[pos_parse] != '"') pos_parse++;
+            std::string s = source.substr(start, pos_parse - start);
+            pos_parse++;
+            return s;
+        } else if (isdigit(source[pos_parse]) || source[pos_parse] == '-') {
+            size_t start = pos_parse;
+            if (source[pos_parse] == '-') pos_parse++;
+            while (pos_parse < source.length() && (isdigit(source[pos_parse]) || source[pos_parse] == '.')) pos_parse++;
+            return std::stod(source.substr(start, pos_parse - start));
+        } else if (source[pos_parse] == '[') {
+            pos_parse++;
+            std::vector<Value> elements;
+            while (pos_parse < source.length() && source[pos_parse] != ']') {
+                elements.push_back(parseValue());
+                while (pos_parse < source.length() && isspace(source[pos_parse])) pos_parse++;
+                if (pos_parse < source.length() && source[pos_parse] == ',') pos_parse++;
+                while (pos_parse < source.length() && isspace(source[pos_parse])) pos_parse++;
+            }
+            if (pos_parse < source.length()) pos_parse++;
+            return std::make_shared<FSKArray>(elements);
+        } else if (pos_parse + 4 <= source.length() && source.substr(pos_parse, 4) == "true") {
+            pos_parse += 4; return true;
+        } else if (pos_parse + 5 <= source.length() && source.substr(pos_parse, 5) == "false") {
+            pos_parse += 5; return false;
+        } else if (pos_parse + 4 <= source.length() && source.substr(pos_parse, 4) == "null") {
+            pos_parse += 4; return std::monostate{};
+        }
+        return std::monostate{};
+    };
+    return parseValue();
 }

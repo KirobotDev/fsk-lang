@@ -176,8 +176,9 @@ fn renderPage(title, content, isHome) {
         }
 
         h1 { font-size: 3rem; font-weight: 900; text-transform: uppercase; border-bottom: 4px solid var(--border-color); padding-bottom: 10px; margin-bottom: 2rem; }
-        h2 { margin-top: 3rem; font-size: 2rem; border-bottom: 2px solid var(--border-color); }
+        h2 { margin-top: 3rem; font-size: 2rem; border-bottom: 2px solid var(--border-color); color: var(--primary); background: #000; display: inline-block; padding: 4px 12px; }
         h3 { font-size: 1.5rem; margin-top: 2rem; text-decoration: underline; }
+        p { font-size: 1.2rem; }
         
         pre {
             background-color: var(--code-bg);
@@ -188,6 +189,8 @@ fn renderPage(title, content, isHome) {
             font-family: 'Courier New', monospace;
             overflow-x: auto;
             font-weight: bold;
+            margin: 1.5rem 0;
+            line-height: 1.4;
         }
 
         .hero {
@@ -227,8 +230,6 @@ fn renderPage(title, content, isHome) {
             transition: transform 0.1s;
         }
         .cta-btn:hover { transform: scale(1.05); background-color: #fff; }
-        
-
         
         .editor-wrapper {
             position: relative;
@@ -290,7 +291,6 @@ fn renderPage(title, content, isHome) {
 
         function toggleSound() {
             soundEnabled = !soundEnabled;
-            soundEnabled = !soundEnabled;
             let onIcon = '<svg viewBox=%220 0 24 24%22><path d=%22M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z%22/></svg>';
             let offIcon = '<svg viewBox=%220 0 24 24%22><path d=%22M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z%22/></svg>';
             
@@ -320,7 +320,7 @@ fn renderPage(title, content, isHome) {
              let commentRe = new RegExp('(' + bs + '/' + bs + '/.*)', 'g');
              code = code.replace(commentRe, '<span class=' + dq + 'com' + dq + '>$1</span>');
              
-             let kwRe = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print)' + bs + 'b', 'g');
+             let kwRe = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b', 'g');
              code = code.replace(kwRe, '<span class=' + dq + 'kw' + dq + '>$1</span>');
              
              let fnRe = new RegExp('([a-zA-Z_]' + bs + 'w*)' + bs + 's*' + bs + '(', 'g');
@@ -328,6 +328,9 @@ fn renderPage(title, content, isHome) {
              
              let strRe = new RegExp('(' + sq + '.*?' + sq + ')', 'g');
              code = code.replace(strRe, '<span class=' + dq + 'str' + dq + '>$1</span>');
+
+             let dStrRe = new RegExp('(' + dq + '.*?' + dq + ')', 'g');
+             code = code.replace(dStrRe, '<span class=' + dq + 'str' + dq + '>$1</span>');
              
              let numRe = new RegExp(bs + 'b(' + bs + 'd+)' + bs + 'b', 'g');
              code = code.replace(numRe, '<span class=' + dq + 'num' + dq + '>$1</span>');
@@ -354,7 +357,7 @@ fn renderPage(title, content, isHome) {
              const output = document.getElementById('editor-highlight');
              output.scrollTop = input.scrollTop;
              output.scrollLeft = input.scrollLeft;
-        }
+         }
         
         async function runCode() {
             playClick();
@@ -374,11 +377,16 @@ fn renderPage(title, content, isHome) {
             }
         }
         
-
-        
         window.onload = function() {
               const saved = localStorage.getItem('theme') || 'light';
               document.documentElement.setAttribute('data-theme', saved);
+              
+              document.querySelectorAll('pre').forEach(pre => {
+                  if (pre.id !== 'editor-highlight') {
+                      pre.innerHTML = highlight(pre.innerText);
+                  }
+              });
+
               const input = document.getElementById('editor-input');
               if (input) {
                   updateEditor();
@@ -419,9 +427,13 @@ fn renderPage(title, content, isHome) {
 fn handleRequest(req) {
   let sidebar = "
     <aside class='sidebar'>
+        <h3><span>🚀</span> START HERE</h3>
+        <ul>
+            <li><a href='/tutorial'>FIRST STEPS</a></li>
+            <li><a href='/installation'>INSTALLATION</a></li>
+        </ul>
         <h3><span>📜</span> SCRIPTURES</h3>
         <ul>
-            <li><a href='/installation'>INSTALLATION</a></li>
             <li><a href='/syntax'>SYNTAX</a></li>
         </ul>
         <h3><span>📦</span> MODULES</h3>
@@ -430,107 +442,405 @@ fn handleRequest(req) {
             <li><a href='/math'>Math</a></li>
             <li><a href='/io'>File I/O</a></li>
             <li><a href='/server'>Web Server</a></li>
+            <li><a href='/arrays'>Arrays</a></li>
+            <li><a href='/json'>JSON</a></li>
+            <li><a href='/networking'>Networking</a></li>
+            <li><a href='/fpm'>Packages (FPM)</a></li>
+            <li><a href='/globals'>Globals</a></li>
+            <li><a href='/cookbook'>Cookbook</a></li>
         </ul>
     </aside>
   ";
 
-  print "DEBUG RAW REQUEST: " + req;
-  
-
-  
   if (FSK.indexOf(req, "POST /api/run") != -1) {
      let pos = FSK.indexOf(req, "\r\n\r\n");
      let code = "";
       if (pos == -1) {
           pos = FSK.indexOf(req, "\n\n"); 
-          if (pos != -1) {
-              code = FSK.substr(req, pos + 2, 10000);
-          }
-      } else {
-          code = FSK.substr(req, pos + 4, 10000);
-      }
-      
-      print "DEBUG REPL CODE RECEIVED: [" + code + "]";
-      
+          if (pos != -1) { code = FSK.substr(req, pos + 2, 10000); }
+      } else { code = FSK.substr(req, pos + 4, 10000); }
       writeFile("temp_repl.fsk", code);
-      let output = FSK.shell("timeout 2s ./build/fsk temp_repl.fsk 2>&1");
-     
-     print "DEBUG REPL OUTPUT: [" + output + "]";
-     
-     return output;
+      return FSK.shell("timeout 2s ./build/fsk temp_repl.fsk 2>&1");
   } 
 
-  if (FSK.indexOf(req, "GET /installation ") != -1) {
-
-      return renderPage("Install", "
+  if (FSK.indexOf(req, "GET /tutorial ") != -1) {
+      return renderPage("Tutorial", "
       <div class='doc-container'>
           " + sidebar + "
           <main class='content'>
-              <h1>Installation</h1>
+              <h1>First Steps with Fsk</h1>
+              <p>Fsk is a modern, high-performance language designed for developers who demand speed and clarity. This tutorial will walk you through the core concepts in minute detail.</p>
               
-              <h3>1. Global Installation (After Build)</h3>
-              <p>Install Fsk and FPM system-wide to access them globally.</p>
-
-              <h4>Linux (Bash)</h4>
+              <h2>1. Hello World & Comments</h2>
+              <p>Every language starts with a Hello World. In Fsk, the <code>print</code> statement displays values to the console followed by a newline.</p>
               <pre>
-sudo mkdir -p /usr/local/lib/fsk/
-sudo cp -r std /usr/local/lib/fsk/
-sudo cp build/fsk /usr/local/bin/
-
-sudo cp -r fpm /usr/local/lib/fsk/
-echo '#!/bin/bash' | sudo tee /usr/local/bin/fpm
-echo 'fsk /usr/local/lib/fsk/fpm/fpm.fsk &quot;$@&quot;' | sudo tee -a /usr/local/bin/fpm
-sudo chmod +x /usr/local/bin/fpm
+print 'Hello Fsk!'; // This is a single-line comment
+/* This is a 
+   multi-line comment 
+   often used for documentation */
               </pre>
 
-              <h4>Windows (PowerShell)</h4>
-              <p>Run as Administrator:</p>
+              <h2>2. Variables (let) & Constants (const)</h2>
+              <p>Fsk uses <code>let</code> for variables that can be reassigned and <code>const</code> for immutable values. Constants help the interpreter optimize your code.</p>
               <pre>
-New-Item -ItemType Directory -Force -Path 'C:/Fsk'
-Copy-Item -Recurse -Force 'std' 'C:/Fsk/'
-[System.Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:/Fsk', 'User')
+let score = 0;
+score = score + 10;
+print 'Score is: ' + score;
 
-Copy-Item -Recurse -Force 'fpm' 'C:/Fsk/'
-Set-Content -Path 'C:/Fsk/fpm.bat' -Value '@fsk C:/Fsk/fpm/fpm.fsk %*'
+const PI = 3.14159;
+// PI = 3; // Error! Constants cannot be reassigned.
               </pre>
-              <small>Place fsk.exe in C:/Fsk/</small>
 
-              <h3>2. Build from Source</h3>
+              <h2>3. Fundamental Data Types</h2>
+              <p>Fsk supports dynamic typing with several built-in primitive types:</p>
+              <ul>
+                <li><b>Strings</b>: Use single quotes <code>'...'</code> or double quotes <code>&quot;...&quot;</code>.</li>
+                <li><b>Numbers</b>: Integers and double-precision floats.</li>
+                <li><b>Booleans</b>: Literal <code>true</code> and <code>false</code>.</li>
+                <li><b>Nil</b>: The <code>nil</code> keyword represents the absence of a value.</li>
+              </ul>
               <pre>
-git clone https://github.com/kirobotdev/fsk-lang
-cd fsk-lang
-mkdir build && cd build
-cmake ..
-make
+let name = 'Antigravity';
+let age = 777;
+let alive = true;
+let thing = nil;
+              </pre>
+
+              <h2>4. Basic Mathematics</h2>
+              <pre>
+let a = 10;
+let b = 5;
+print a + b; // Addition: 15
+print a - b; // Subtraction: 5
+print a * b; // Multiplication: 50
+print a / b; // Division: 2
+print a % 3; // Modulo (Remainder): 1
               </pre>
           </main>
       </div>", false);
   }
-  
+
   if (FSK.indexOf(req, "GET /syntax ") != -1) {
       return renderPage("Syntax", "
       <div class='doc-container'>
           " + sidebar + "
           <main class='content'>
-              <h1>Language Syntax</h1>
-              <h3>Variables</h3>
+              <h1>Language Deep-Dive</h1>
+              
+              <h2>Control Flow (Conditional)</h2>
+              <p>Conditionals allow your program to make decisions based on boolean logic.</p>
               <pre>
-let x = 10;      
-const y = 20;   
-              </pre>
-              <h3>Functions</h3>
-              <pre>
-fn greet(name) {
-    print 'Hello ' + name;
-}
-              </pre>
-              <h3>Control Flow</h3>
-              <pre>
-if (x > 5) {
-    print 'Greater';
+let temperature = 25;
+
+if (temperature > 30) {
+    print 'It is very hot!';
+} else if (temperature < 10) {
+    print 'It is freezing!';
 } else {
-    print 'Lesser';
+    print 'The weather is perfect.';
 }
+
+// Logical Operators
+if (temperature > 15 && temperature < 30) {
+    print 'Ideal for a walk.';
+}
+              </pre>
+
+              <h2>Loops & Iteration</h2>
+              <p>Fsk provides two primary ways to repeat code: <code>while</code> and <code>for</code> loops.</p>
+              
+              <h3>1. The While Loop</h3>
+              <pre>
+let i = 0;
+while (i < 5) {
+    print 'Count: ' + i;
+    i = i + 1;
+}
+              </pre>
+
+              <h3>2. The For Loop</h3>
+              <p>The <code>for</code> loop is perfect for iterating a specific number of times.</p>
+              <pre>
+for (let j = 0; j < 5; j = j + 1) {
+    print 'Counter: ' + j;
+}
+              </pre>
+
+              <h2>Functions (The Heart of Fsk)</h2>
+              <p>Functions are first-class citizens in Fsk. They can be defined as named functions or assigned to variables as lambdas.</p>
+              <pre>
+// Named function
+fn add(a, b) {
+    return a + b;
+}
+
+// Lambda function
+let multiply = fn(a, b) { return a * b; };
+
+print add(10, 5);      // 15
+print multiply(10, 5); // 50
+              </pre>
+
+              <h2>Object Oriented Programming (OOP)</h2>
+              <p>Fsk classes support constructors (via the <code>init</code> function) and single inheritance.</p>
+              <pre>
+class Animal {
+    fn init(name) {
+        this.name = name;
+    }
+    fn speak() {
+        print this.name + ' makes a sound.';
+    }
+}
+
+class Cat < Animal {
+    fn speak() {
+        print this.name + ' says MEOW!';
+    }
+}
+
+let myCat = Cat('Luna');
+myCat.speak(); // Luna says MEOW!
+              </pre>
+          </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /arrays ") != -1) {
+      return renderPage("Arrays & Strings", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Arrays & String Methods</h1>
+              
+              <h2>Native Arrays</h2>
+              <p>Arrays in Fsk are dynamic and can hold heterogeneous data types. They are zero-indexed.</p>
+              <pre>
+let colors = ['red', 'green', 'blue'];
+
+// Accessing elements
+print colors[0]; // red
+
+// Useful properties and methods
+print 'Count: ' + colors.length; // 3
+
+colors.push('yellow'); // Add to end
+print colors.length;   // 4
+
+let last = colors.pop(); // Remove from end
+print last; // yellow
+              </pre>
+
+              <h2>String Manipulation</h2>
+              <p>Strings are built-in and possess several powerful methods for manipulation.</p>
+              <pre>
+let text = '  Fsk Language  ';
+
+print text.length; // 16
+print text.trim(); // 'Fsk Language'
+
+// Substrings (start, length)
+print text.substr(2, 3); // 'Fsk'
+
+// Search
+print text.indexOf('Lang'); // 6
+              </pre>
+
+              <h2>Complex Iteration</h2>
+              <p>Iterating over an array using a for loop and the <code>length</code> property.</p>
+              <pre>
+let items = ['Apple', 'Banana', 'Cherry'];
+for (let i = 0; i < items.length; i = i + 1) {
+    print 'Item ' + i + ': ' + items[i];
+}
+              </pre>
+          </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /json ") != -1) {
+      return renderPage("JSON Engine", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>JSON Processing</h1>
+              <p>Fsk features a lightning-fast native JSON engine. It allows you to convert between Fsk data structures (Arrays/Values) and JSON strings effortlessly.</p>
+              
+              <h2>JSON.stringify</h2>
+              <p>Convert an Fsk value (usually an array or a complex structure) into a JSON string.</p>
+              <pre>
+let user = ['John Doe', 30, ['Developer', 'Gamer']];
+let jsonString = JSON.stringify(user);
+print jsonString; // [&quot;John Doe&quot;,30,[&quot;Developer&quot;,&quot;Gamer&quot;]]
+              </pre>
+
+              <h2>JSON.parse</h2>
+              <p>Parse a JSON string back into native Fsk types.</p>
+              <pre>
+let raw = '[&quot;Antigravity&quot;, true, 777]';
+let data = JSON.parse(raw);
+
+print 'Name: ' + data[0];
+if (data[1]) {
+    print 'Status: OK';
+}
+              </pre>
+
+              <h2>Real-world Example</h2>
+              <pre>
+let response = FSK.fetch('https://api.github.com/users/octocat');
+// Note: simplified as FSK fetch currently handles raw text.
+// Useful for parsing configuration or API responses.
+              </pre>
+          </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /networking ") != -1) {
+      return renderPage("Networking", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Networking & Web</h1>
+              
+              <h2>Client: FSK.fetch</h2>
+              <p>Download content from any HTTP URL. This is a blocking call that returns the source code of the page.</p>
+              <pre>
+let source = FSK.fetch('https://google.com');
+print 'Fetched ' + source.length + ' bytes.';
+writeFile('downloaded.html', source);
+              </pre>
+
+              <h2>Server: FSK.startServer</h2>
+              <p>Create a highly efficient web server. The second argument is a handler function that receives the raw request string and must return a valid HTTP response.</p>
+              <pre>
+fn myHandler(request) {
+    print 'Received request!';
+    if (FSK.indexOf(request, 'GET / ') != -1) {
+        return 'HTTP/1.1 200 OK&#92;nContent-Type: text/html&#92;n&#92;n<h1>Fsk Server</h1>';
+    }
+    return 'HTTP/1.1 404 Not Found&#92;n&#92;nPage not found.';
+}
+
+print 'Server starting on port 8080...';
+FSK.startServer(8080, myHandler);
+              </pre>
+          </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /cookbook ") != -1) {
+      return renderPage("Fsk Cookbook", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>The Fsk Cookbook</h1>
+              <p>A collection of useful code snippets for common tasks.</p>
+              
+              <h2>1. Persistent Logger Class</h2>
+              <pre>
+class Logger {
+    fn init(filename) {
+        this.filename = filename;
+    }
+    fn log(message) {
+        let current = '';
+        try {
+            current = readFile(this.filename);
+        } catch {
+            // File might not exist yet
+        }
+        writeFile(this.filename, current + '&#92;n[' + clock() + '] ' + message);
+    }
+}
+
+let appLog = Logger('app.log');
+appLog.log('Application started successfully.');
+              </pre>
+
+              <h2>2. Environment Config Loader</h2>
+              <pre>
+fn loadConfig(path) {
+    let raw = readFile(path);
+    return JSON.parse(raw);
+}
+
+let config = loadConfig('settings.json');
+print 'Connecting to: ' + config[0]; // Assuming host is first item
+              </pre>
+
+              <h2>3. Simple API Router</h2>
+              <pre>
+fn router(req) {
+    if (FSK.indexOf(req, 'GET /api/v1/users') != -1) return handleUsers();
+    if (FSK.indexOf(req, 'GET /api/v1/status') != -1) return 'HTTP/1.1 200 OK&#92;n&#92;nRUNNING';
+    return 'HTTP/1.1 404 Not Found&#92;n&#92;n';
+}
+              </pre>
+          </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /installation ") != -1) {
+      return renderPage("Installation", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Installation Guide</h1>
+              
+              <h2>Binary Installation (Recommended)</h2>
+              <p>Move the compiled binary to your system path to use <code>fsk</code> globally.</p>
+              <pre>
+sudo cp build/fsk /usr/local/bin/
+sudo chmod +x /usr/local/bin/fsk
+              </pre>
+
+              <h2>Setting up Standard Library</h2>
+              <p>Fsk looks for its standard library in <code>/usr/local/lib/fsk/</code>.</p>
+              <pre>
+sudo mkdir -p /usr/local/lib/fsk/
+sudo cp -r std /usr/local/lib/fsk/
+              </pre>
+
+              <h2>Verifying Installation</h2>
+              <pre>
+fsk -v
+// FSK version 1.0.0
+              </pre>
+          </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /globals ") != -1) {
+      return renderPage("Globals", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Global Functions & API</h1>
+              
+              <h2>FSK Namespace</h2>
+              <p>These functions are built-in and always available.</p>
+              <ul>
+                <li><code>FSK.version()</code>: Returns version string.</li>
+                <li><code>FSK.argCount()</code>: Returns number of CLI arguments.</li>
+                <li><code>FSK.fetch(url)</code>: GET request (Blocking).</li>
+                <li><code>FSK.shell(cmd)</code>: Execute system command (returns stdout).</li>
+                <li><code>FSK.indexOf(haystack, needle)</code>: Search string/array.</li>
+                <li><code>FSK.substr(str, start, count)</code>: Substring extraction.</li>
+              </ul>
+
+              <h2>System Utils</h2>
+              <ul>
+                <li><code>sleep(ms)</code>: Pause execution.</li>
+                <li><code>clock()</code>: Elapsed time in seconds.</li>
+                <li><code>readFile(path)</code>: Load file content.</li>
+                <li><code>writeFile(path, content)</code>: Save content to disk.</li>
+              </ul>
+
+              <pre>
+print 'Running on: ' + FSK.version();
+sleep(100); 
+print 'Up for ' + clock() + 's';
               </pre>
           </main>
       </div>", false);
@@ -539,66 +849,96 @@ if (x > 5) {
   if (FSK.indexOf(req, "GET /list ") != -1) {
       return renderPage("List Module", "
       <div class='doc-container'>
-          " + sidebar + "
-          <main class='content'>
-              <h1>List Module</h1>
-              <p>Linked List implementation in standard library.</p>
-              <pre>
-let l = List();
-l.push(10);
-l.push(20);
+        " + sidebar + "
+        <main class='content'>
+            <h1>List Module (std/list)</h1>
+            <p>The <code>list</code> module provides a linked-list implementation for efficient insertions and deletions.</p>
+            <pre>
+import 'std/list';
 
-l.forEach(fn(val) {
-    print val;
+let myList = List();
+myList.push(10);
+myList.push(20);
+myList.push(30);
+
+print 'Size: ' + myList.length;
+myList.forEach(fn(val) {
+    print 'Value: ' + val;
 });
-              </pre>
-          </main>
+            </pre>
+        </main>
       </div>", false);
   }
 
   if (FSK.indexOf(req, "GET /math ") != -1) {
       return renderPage("Math Module", "
       <div class='doc-container'>
-          " + sidebar + "
-          <main class='content'>
-              <h1>Math Module</h1>
-              <pre>
-print Math.max(10, 20); 
-print Math.pow(2, 3);  
-print Math.abs(-50);    
-              </pre>
-          </main>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Math Module</h1>
+            <p>Advanced mathematical functions.</p>
+            <pre>
+print Math.sqrt(64);  // 8
+print Math.pow(2, 10); // 1024
+print Math.abs(-50);   // 50
+print Math.random(); // Random float between 0 and 1
+            </pre>
+        </main>
       </div>", false);
   }
-  
+
   if (FSK.indexOf(req, "GET /io ") != -1) {
       return renderPage("IO Module", "
       <div class='doc-container'>
-          " + sidebar + "
-          <main class='content'>
-              <h1>File I/O</h1>
-              <pre>
-let content = readFile('data.txt');
-writeFile('output.txt', content + ' appended');
-FSK.exec('ls -la');
-              </pre>
-          </main>
+        " + sidebar + "
+        <main class='content'>
+            <h1>IO & Execution</h1>
+            <p>Methods for interacting with the operating system.</p>
+            <pre>
+let c = readFile('script.fsk');
+writeFile('backup.fsk', c);
+
+// Execute a shell command and capture output
+let files = FSK.shell('ls -l');
+print files;
+            </pre>
+        </main>
       </div>", false);
   }
 
   if (FSK.indexOf(req, "GET /server ") != -1) {
       return renderPage("Server Module", "
       <div class='doc-container'>
-          " + sidebar + "
-          <main class='content'>
-              <h1>HTTP Server</h1>
-              <p>Native multithreaded-ready TCP server.</p>
-              <pre>
-fn handler(req) {
-    return 'HTTP/1.1 200 OK&#92;n&#92;nHello World';
+        " + sidebar + "
+        <main class='content'>
+            <h1>Server Implementation</h1>
+            <p>Full example of a document server (very similar to this one!).</p>
+            <pre>
+fn start() {
+    print 'Starting server...';
+    FSK.startServer(80, fn(req) {
+        return 'HTTP/1.1 200 OK&#92;n&#92;nWelcome to Fsk Server';
+    });
 }
-              </pre>
-          </main>
+            </pre>
+        </main>
+      </div>", false);
+  }
+  
+  if (FSK.indexOf(req, "GET /fpm ") != -1) {
+      return renderPage("FPM", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Fsk Package Manager (FPM)</h1>
+            <p>FPM is the official tool for managing Fsk projects and dependencies.</p>
+            <pre>
+// Terminal commands:
+fpm init         // Initialize a new project
+fpm install name // Install a package
+fpm run          // Execute entry point defined in fpm.json
+            </pre>
+        </main>
       </div>", false);
   }
 
@@ -607,36 +947,31 @@ fn handler(req) {
         <div class='hero'>
             <div class='hero-box'>
                 <div style='display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; margin-bottom:20px;'>
-                    <img src='https://i.postimg.cc/ZqxPX36z/image.png' style='width:128px; height:128px; image-rendering: pixelated; border: 4px solid black; box-shadow: 4px 4px 0px black;'>
+                    <img src='https://i.postimg.cc/ZqxPX36z/image.png' style='width:128px; height:128px; border: 4px solid black; box-shadow: 4px 4px 0px black; image-rendering: pixelated;'>
                     <h1 style='font-size:6rem; margin:0; border:none;'>FSK</h1>
                 </div>
                 <p>Divine Intellect Operating Language</p>
-
                 <a href='#repl-section' class='cta-btn'>ENTER CODE</a>
             </div>
         </div>
 
-        
-
-
-        <div id='repl-section' class='repl-section'>
-             <h2>FSK TERMINAL</h2>
+        <div id='repl-section' class='repl-section' style='padding: 4rem; background: var(--bg-color);'>
+             <h2 style='text-align:center;'>FSK TERMINAL</h2>
              <div class='repl-container' style='max-width:900px; margin:0 auto; background:#111; padding:10px; box-shadow: 10px 10px 0px #000; border:4px solid #000;'>
                  <div style='background:#ccc; padding:5px; border-bottom:4px solid #000; margin-bottom:10px; display:flex; justify-content:space-between;'>
                     <b>FSK_EDITOR.FSK</b>
                     <button class='run-btn' onclick='runCode()' style='background:red; color:white; font-weight:bold; border:2px solid black;'>RUN</button>
                  </div>
-                 
                  <div class='editor-wrapper'>
                        <pre id='editor-highlight' class='editor-layer'></pre>
                        <textarea id='editor-input' class='editor-layer' spellcheck='false'>
-print 'Hello World';
+print 'Welcome to Fsk';
 
-fn god() {
-  return 777;
+fn salute() {
+    print 'Hello Divine Mind';
 }
 
-print god();</textarea>
+salute();</textarea>
                  </div>
                  <div id='repl-output' style='background:black; color:cyan; padding:10px; font-family:monospace; min-height:100px; border-top:4px solid white;'>OUTPUT AWAITING...</div>
              </div>
@@ -644,8 +979,7 @@ print god();</textarea>
     ", true);
   }
   
-  return renderPage("404", "<div class='content'><h1>404 - LOST</h1><p>The path is unknown.</p></div>", false);
+  return renderPage("404", "<h1>404</h1>", false);
 }
 
-print "About to start server on 8092...";
 FSK.startServer(8092, handleRequest);

@@ -1,0 +1,4 @@
+print "Fetching Google...";
+let res = FSK.fetch("https://www.google.com");
+print "Response length: " + res.length;
+print "Preview: " + res.substr(0, 100);
