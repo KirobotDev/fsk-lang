@@ -1,0 +1,42 @@
+{
+    "_comment": "DO NOT EDIT: This file was created by xql.dev",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-01-23T03:45:00+00:00",
+    "name": "Fsk Language",
+    "author": "kiro@kirosb.fr",
+    "description": "Custom egg to run Fsk Language applications. Automatically builds Fsk from source.",
+    "features": null,
+    "docker_images": {
+        "Debian Stable (Build Tools)": "ghcr.io/parkervcp/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup": "/mnt/server/fsk {{STARTUP_FILE}}",
+    "config": {
+        "files": "{}",
+        "startup": "{\r\n    \"done\": \"Server started\"\r\n}",
+        "logs": "{}",
+        "stop": "^^C"
+    },
+    "scripts": {
+        "installation": {
+            "container": "debian:stable-slim",
+            "entrypoint": "bash",
+            "script": "#!/bin/bash\r\n# Fsk Optimized Installation Script\r\n\r\napt update\r\napt install -y cmake g++ make git curl\r\n\r\ncd /tmp\r\necho \"Downloading and building Fsk...\"\r\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\r\ncd fsk-build\r\n\r\nmkdir build && cd build\r\ncmake ..\r\nmake -j$(nproc)\r\n\r\n# Move ONLY the necessary files to /mnt/server\r\necho \"Deploying Fsk to server root...\"\r\nmkdir -p /mnt/server\r\ncp fsk /mnt/server/fsk\r\nchmod +x /mnt/server/fsk\r\n\r\n# Copy standard library\r\nmkdir -p /mnt/server/std\r\ncp -r ../std/* /mnt/server/std/\r\n\r\n# Clean up temporary build files\r\ncd /tmp\r\nrm -rf fsk-build\r\n\r\necho \"Installation complete. Server directory is clean.\""
+        }
+    },
+    "variables": [
+        {
+            "name": "Startup File",
+            "description": "The main .fsk file to run.",
+            "env_variable": "STARTUP_FILE",
+            "default_value": "docs/server.fsk",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:128",
+            "field_type": "text"
+        }
+    ]
+}

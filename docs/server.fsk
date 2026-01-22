@@ -311,31 +311,22 @@ fn renderPage(title, content, isHome) {
         }
 
         function highlight(code) {
-             let bs = String.fromCharCode(92);
              let dq = String.fromCharCode(34);
              let sq = String.fromCharCode(39);
+             let bs = String.fromCharCode(92);
              
              code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
              
-             let commentRe = new RegExp('(' + bs + '/' + bs + '/.*)', 'g');
-             code = code.replace(commentRe, '<span class=' + dq + 'com' + dq + '>$1</span>');
+             const re = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b|([a-zA-Z_]' + bs + 'w*)' + bs + 's*(?=' + bs + '(' + bs + ')|' + bs + 'b(' + bs + 'd+)' + bs + 'b|(' + sq + '(?:' + bs + bs + '.' + bs + '|[^' + sq + '])*' + sq + '|' + dq + '(?:' + bs + bs + '.' + bs + '|[^' + dq + '])*' + dq + ')|(' + bs + '/' + bs + '/.*|' + bs + '/' + bs + '/*[' + bs + 's' + bs + 'S]*?' + bs + '*' + bs + '/', 'g');
              
-             let kwRe = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b', 'g');
-             code = code.replace(kwRe, '<span class=' + dq + 'kw' + dq + '>$1</span>');
-             
-             let fnRe = new RegExp('([a-zA-Z_]' + bs + 'w*)' + bs + 's*' + bs + '(', 'g');
-             code = code.replace(fnRe, '<span class=' + dq + 'fn' + dq + '>$1</span>(');
-             
-             let strRe = new RegExp('(' + sq + '.*?' + sq + ')', 'g');
-             code = code.replace(strRe, '<span class=' + dq + 'str' + dq + '>$1</span>');
-
-             let dStrRe = new RegExp('(' + dq + '.*?' + dq + ')', 'g');
-             code = code.replace(dStrRe, '<span class=' + dq + 'str' + dq + '>$1</span>');
-             
-             let numRe = new RegExp(bs + 'b(' + bs + 'd+)' + bs + 'b', 'g');
-             code = code.replace(numRe, '<span class=' + dq + 'num' + dq + '>$1</span>');
-             
-             return code;
+             return code.replace(re, (match, kw, fn, num, str, com) => {
+                 if (kw) return '<span class=' + dq + 'kw' + dq + '>' + kw + '</span>';
+                 if (fn) return '<span class=' + dq + 'fn' + dq + '>' + fn + '</span>';
+                 if (num) return '<span class=' + dq + 'num' + dq + '>' + num + '</span>';
+                 if (str) return '<span class=' + dq + 'str' + dq + '>' + str + '</span>';
+                 if (com) return '<span class=' + dq + 'com' + dq + '>' + com + '</span>';
+                 return match;
+             });
         }
 
         function updateEditor() {
@@ -788,25 +779,36 @@ fn router(req) {
           <main class='content'>
               <h1>Installation Guide</h1>
               
-              <h2>Binary Installation (Recommended)</h2>
-              <p>Move the compiled binary to your system path to use <code>fsk</code> globally.</p>
+              <h2>1. Compile & Install Fsk</h2>
+              <p>To use Fsk on your server or local machine, first compile it from source.</p>
               <pre>
-sudo cp build/fsk /usr/local/bin/
-sudo chmod +x /usr/local/bin/fsk
+mkdir build && cd build
+cmake ..
+make
+sudo cp fsk /usr/local/bin/
               </pre>
 
-              <h2>Setting up Standard Library</h2>
-              <p>Fsk looks for its standard library in <code>/usr/local/lib/fsk/</code>.</p>
+              <h2>2. Setting up Standard Library</h2>
+              <p>Ensure the standard library is accessible at <code>/usr/local/lib/fsk/</code>.</p>
               <pre>
 sudo mkdir -p /usr/local/lib/fsk/
-sudo cp -r std /usr/local/lib/fsk/
+sudo cp -r ../std/* /usr/local/lib/fsk/
               </pre>
 
-              <h2>Verifying Installation</h2>
+              <h2>3. Install IDE Extensions</h2>
+              <p>For syntax highlighting in your favorite editor, copy the extension folder to your IDE's extensions directory.</p>
+              
+              <h3>VS Code Standard</h3>
+              <pre>cp -r fsk-extension ~/.vscode/extensions/fsk-support</pre>
+
+              <h3>Antigravity / VS Code OSS</h3>
               <pre>
-fsk -v
-// FSK version 1.0.0
+cp -r fsk-extension ~/.antigravity/extensions/fsk-support
+// OR
+cp -r fsk-extension ~/.vscode-oss-dev/extensions/fsk-support
               </pre>
+
+              <p><b>Note:</b> After installation, use <code>F1</code> &gt; <code>Reload Window</code> to apply changes.</p>
           </main>
       </div>", false);
   }

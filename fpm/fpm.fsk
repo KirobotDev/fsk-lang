@@ -10,7 +10,7 @@ fn printHelp() {
 
 let REGISTRY = "https://fpm.kirosb.fr/api";
 let argCount = FSK.argCount();
-
+))
 if (argCount < 2) {
     printHelp();
 } else {
