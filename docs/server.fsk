@@ -311,31 +311,22 @@ fn renderPage(title, content, isHome) {
         }
 
         function highlight(code) {
-             let bs = String.fromCharCode(92);
              let dq = String.fromCharCode(34);
              let sq = String.fromCharCode(39);
+             let bs = String.fromCharCode(92);
              
              code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
              
-             let commentRe = new RegExp('(' + bs + '/' + bs + '/.*)', 'g');
-             code = code.replace(commentRe, '<span class=' + dq + 'com' + dq + '>$1</span>');
+             const re = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b|([a-zA-Z_]' + bs + 'w*)' + bs + 's*(?=' + bs + '(' + bs + ')|' + bs + 'b(' + bs + 'd+)' + bs + 'b|(' + sq + '(?:' + bs + bs + '.' + bs + '|[^' + sq + '])*' + sq + '|' + dq + '(?:' + bs + bs + '.' + bs + '|[^' + dq + '])*' + dq + ')|(' + bs + '/' + bs + '/.*|' + bs + '/' + bs + '/*[' + bs + 's' + bs + 'S]*?' + bs + '*' + bs + '/', 'g');
              
-             let kwRe = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b', 'g');
-             code = code.replace(kwRe, '<span class=' + dq + 'kw' + dq + '>$1</span>');
-             
-             let fnRe = new RegExp('([a-zA-Z_]' + bs + 'w*)' + bs + 's*' + bs + '(', 'g');
-             code = code.replace(fnRe, '<span class=' + dq + 'fn' + dq + '>$1</span>(');
-             
-             let strRe = new RegExp('(' + sq + '.*?' + sq + ')', 'g');
-             code = code.replace(strRe, '<span class=' + dq + 'str' + dq + '>$1</span>');
-
-             let dStrRe = new RegExp('(' + dq + '.*?' + dq + ')', 'g');
-             code = code.replace(dStrRe, '<span class=' + dq + 'str' + dq + '>$1</span>');
-             
-             let numRe = new RegExp(bs + 'b(' + bs + 'd+)' + bs + 'b', 'g');
-             code = code.replace(numRe, '<span class=' + dq + 'num' + dq + '>$1</span>');
-             
-             return code;
+             return code.replace(re, (match, kw, fn, num, str, com) => {
+                 if (kw) return '<span class=' + dq + 'kw' + dq + '>' + kw + '</span>';
+                 if (fn) return '<span class=' + dq + 'fn' + dq + '>' + fn + '</span>';
+                 if (num) return '<span class=' + dq + 'num' + dq + '>' + num + '</span>';
+                 if (str) return '<span class=' + dq + 'str' + dq + '>' + str + '</span>';
+                 if (com) return '<span class=' + dq + 'com' + dq + '>' + com + '</span>';
+                 return match;
+             });
         }
 
         function updateEditor() {
