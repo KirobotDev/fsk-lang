@@ -788,25 +788,36 @@ fn router(req) {
           <main class='content'>
               <h1>Installation Guide</h1>
               
-              <h2>Binary Installation (Recommended)</h2>
-              <p>Move the compiled binary to your system path to use <code>fsk</code> globally.</p>
+              <h2>1. Compile & Install Fsk</h2>
+              <p>To use Fsk on your server or local machine, first compile it from source.</p>
               <pre>
-sudo cp build/fsk /usr/local/bin/
-sudo chmod +x /usr/local/bin/fsk
+mkdir build && cd build
+cmake ..
+make
+sudo cp fsk /usr/local/bin/
               </pre>
 
-              <h2>Setting up Standard Library</h2>
-              <p>Fsk looks for its standard library in <code>/usr/local/lib/fsk/</code>.</p>
+              <h2>2. Setting up Standard Library</h2>
+              <p>Ensure the standard library is accessible at <code>/usr/local/lib/fsk/</code>.</p>
               <pre>
 sudo mkdir -p /usr/local/lib/fsk/
-sudo cp -r std /usr/local/lib/fsk/
+sudo cp -r ../std/* /usr/local/lib/fsk/
               </pre>
 
-              <h2>Verifying Installation</h2>
+              <h2>3. Install IDE Extensions</h2>
+              <p>For syntax highlighting in your favorite editor, copy the extension folder to your IDE's extensions directory.</p>
+              
+              <h3>VS Code Standard</h3>
+              <pre>cp -r fsk-extension ~/.vscode/extensions/fsk-support</pre>
+
+              <h3>Antigravity / VS Code OSS</h3>
               <pre>
-fsk -v
-// FSK version 1.0.0
+cp -r fsk-extension ~/.antigravity/extensions/fsk-support
+// OR
+cp -r fsk-extension ~/.vscode-oss-dev/extensions/fsk-support
               </pre>
+
+              <p><b>Note:</b> After installation, use <code>F1</code> &gt; <code>Reload Window</code> to apply changes.</p>
           </main>
       </div>", false);
   }
