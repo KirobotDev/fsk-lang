@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sstream>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <cstring>
