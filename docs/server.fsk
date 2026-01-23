@@ -255,8 +255,10 @@ fn renderPage(title, content, isHome) {
             margin: 0;
         }
         
-        #editor-highlight { color: #fff; z-index: 1; pointer-events: none; }
-        #editor-input { z-index: 2; color: transparent; background: transparent; caret-color: #55FFFF; border: none; outline: none; resize: none; }
+        #editor-highlight { color: #fff; z-index: 1; pointer-events: none; margin: 0; padding: 20px; font-family: 'Courier New', monospace; font-size: 1.2rem; line-height: 1.5; white-space: pre-wrap; width: 100%; height: 100%; position: absolute; top: 0; left: 0; overflow: hidden; opacity: 0.6; }
+        #editor-input { z-index: 2; color: #ffffff; background: transparent; caret-color: #55FFFF; border: none; outline: none; resize: none; margin: 0; padding: 20px; font-family: 'Courier New', monospace; font-size: 1.2rem; line-height: 1.5; white-space: pre-wrap; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+
         
         .kw { color: #FFFF55; font-weight: bold; }
         .str { color: #55FFFF; }
@@ -317,17 +319,22 @@ fn renderPage(title, content, isHome) {
              
              code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
              
-             const re = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b|([a-zA-Z_]' + bs + 'w*)' + bs + 's*(?=' + bs + '(' + bs + ')|' + bs + 'b(' + bs + 'd+)' + bs + 'b|(' + sq + '(?:' + bs + bs + '.' + bs + '|[^' + sq + '])*' + sq + '|' + dq + '(?:' + bs + bs + '.' + bs + '|[^' + dq + '])*' + dq + ')|(' + bs + '/' + bs + '/.*|' + bs + '/' + bs + '/*[' + bs + 's' + bs + 'S]*?' + bs + '*' + bs + '/', 'g');
+             const re = new RegExp(bs + 'b(fn|return|if|else|while|let|class|import|true|false|print|const|for|super|this|nil)' + bs + 'b|([a-zA-Z_]' + bs + 'w*)' + bs + 's*(?=' + bs + '()|' + bs + 'b(' + bs + 'd+)' + bs + 'b|(' + sq + '(?:' + bs + bs + '.' + bs + '|[^' + sq + '])*' + sq + '|' + dq + '(?:' + bs + bs + '.' + bs + '|[^' + dq + '])*' + dq + ')|(' + bs + '/' + bs + '/.*|' + bs + '/' + bs + '/*[' + bs + 's' + bs + 'S]*?' + bs + '*' + bs + '/', 'g');
              
-             return code.replace(re, (match, kw, fn, num, str, com) => {
-                 if (kw) return '<span class=' + dq + 'kw' + dq + '>' + kw + '</span>';
-                 if (fn) return '<span class=' + dq + 'fn' + dq + '>' + fn + '</span>';
-                 if (num) return '<span class=' + dq + 'num' + dq + '>' + num + '</span>';
-                 if (str) return '<span class=' + dq + 'str' + dq + '>' + str + '</span>';
-                 if (com) return '<span class=' + dq + 'com' + dq + '>' + com + '</span>';
-                 return match;
-             });
-        }
+             try {
+                 return code.replace(re, (match, kw, fn, num, str, com) => {
+                     if (kw) return '<span class=' + dq + 'kw' + dq + '>' + kw + '</span>';
+                     if (fn) return '<span class=' + dq + 'fn' + dq + '>' + fn + '</span>';
+                     if (num) return '<span class=' + dq + 'num' + dq + '>' + num + '</span>';
+                     if (str) return '<span class=' + dq + 'str' + dq + '>' + str + '</span>';
+                     if (com) return '<span class=' + dq + 'com' + dq + '>' + com + '</span>';
+                     return match;
+                 });
+             } catch (e) {
+                 console.error('Highlight error:', e);
+                 return code; // Fallback to plain text
+             }
+         }
 
         function updateEditor() {
              const input = document.getElementById('editor-input');
@@ -449,9 +456,17 @@ fn handleRequest(req) {
       if (pos == -1) {
           pos = FSK.indexOf(req, "\n\n"); 
           if (pos != -1) { code = FSK.substr(req, pos + 2, 10000); }
-      } else { code = FSK.substr(req, pos + 4, 10000); }
+      print "SERVER: Body length: " + code.length;
+      print "SERVER: Code: [" + code + "]";
       writeFile("temp_repl.fsk", code);
-      return FSK.shell("timeout 2s ./build/fsk temp_repl.fsk 2>&1");
+      
+      // Attempt to find the binary
+      let cmd = "timeout 2s ../build/fsk temp_repl.fsk 2>&1 || timeout 2s ./build/fsk temp_repl.fsk 2>&1 || timeout 2s fsk temp_repl.fsk 2>&1";
+      
+      let result = FSK.shell(cmd);
+      
+      if (result == "") { return "Execution finished (No Output)."; }
+      return result;
   } 
 
   if (FSK.indexOf(req, "GET /tutorial ") != -1) {
