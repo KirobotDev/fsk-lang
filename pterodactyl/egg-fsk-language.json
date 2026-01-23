@@ -4,10 +4,10 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-01-23T04:10:00+00:00",
+    "exported_at": "2026-01-23T04:20:00+00:00",
     "name": "Fsk Language",
     "author": "kiro@kirosb.fr",
-    "description": "Egg Pterodactyl pour le langage FSK. Compile FSK depuis les sources et exécute un fichier .fsk.",
+    "description": "Egg Pterodactyl pour le langage FSK",
     "features": null,
     "docker_images": {
         "Debian Stable": "ghcr.io/parkervcp/yolks:debian"
@@ -16,9 +16,7 @@
     "startup": "bash -c './fsk {{STARTUP_FILE}}; echo \"FSK execution finished\"; tail -f /dev/null'",
     "config": {
         "files": "{}",
-        "startup": {
-            "done": ""
-        },
+        "startup": "{\n  \"done\": \"\"\n}",
         "logs": "{}",
         "stop": "^C"
     },
@@ -26,7 +24,7 @@
         "installation": {
             "container": "debian:bullseye-slim",
             "entrypoint": "bash",
-            "script": "#!/bin/bash\nset -e\n\napt update\napt install -y git cmake g++ make curl\n\ncd /tmp\necho \"[FSK] Clonage du repo...\"\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\ncd fsk-build\n\nmkdir build && cd build\ncmake ..\nmake -j$(nproc)\n\n# Déploiement dans le dossier serveur (Pterodactyl)\necho \"[FSK] Déploiement du binaire...\"\nmkdir -p /mnt/server\ncp fsk /mnt/server/fsk\nchmod +x /mnt/server/fsk\n\n# Déploiement de la stdlib\necho \"[FSK] Copie de la stdlib...\"\nmkdir -p /mnt/server/std\ncp -r ../std/* /mnt/server/std/\n\n# Nettoyage\necho \"[FSK] Nettoyage...\"\nrm -rf /tmp/fsk-build\n\necho \"[FSK] Installation terminée.\""
+            "script": "#!/bin/bash\nset -e\n\napt update\napt install -y git cmake g++ make curl\n\ncd /tmp\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\ncd fsk-build\n\nmkdir build && cd build\ncmake ..\nmake -j$(nproc)\n\nmkdir -p /mnt/server\ncp fsk /mnt/server/fsk\nchmod +x /mnt/server/fsk\n\nmkdir -p /mnt/server/std\ncp -r ../std/* /mnt/server/std/\n\nrm -rf /tmp/fsk-build\necho \"FSK installé avec succès\""
         }
     },
     "variables": [
