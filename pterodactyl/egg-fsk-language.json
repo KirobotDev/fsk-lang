@@ -1,38 +1,40 @@
 {
-    "_comment": "DO NOT EDIT: This file was created by xql.dev",
+    "_comment": "FSK Language - Pterodactyl Egg",
     "meta": {
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-01-23T03:45:00+00:00",
+    "exported_at": "2026-01-23T04:10:00+00:00",
     "name": "Fsk Language",
     "author": "kiro@kirosb.fr",
-    "description": "Custom egg to run Fsk Language applications. Automatically builds Fsk from source.",
+    "description": "Egg Pterodactyl pour le langage FSK. Compile FSK depuis les sources et exécute un fichier .fsk.",
     "features": null,
     "docker_images": {
-        "Debian Stable (Build Tools)": "ghcr.io/parkervcp/yolks:debian"
+        "Debian Stable": "ghcr.io/parkervcp/yolks:debian"
     },
     "file_denylist": [],
-    "startup": "./fsk {{STARTUP_FILE}}",
+    "startup": "bash -c './fsk {{STARTUP_FILE}}; echo \"FSK execution finished\"; tail -f /dev/null'",
     "config": {
         "files": "{}",
-        "startup": "{\r\n    \"done\": \"Server started\"\r\n}",
+        "startup": {
+            "done": ""
+        },
         "logs": "{}",
-        "stop": "^^C"
+        "stop": "^C"
     },
     "scripts": {
         "installation": {
             "container": "debian:bullseye-slim",
             "entrypoint": "bash",
-            "script": "#!/bin/bash\r\n# Fsk Optimized Installation Script\r\n\r\napt update\r\napt install -y cmake g++ make git curl\r\n\r\ncd /tmp\r\necho \"Downloading and building Fsk...\"\r\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\r\ncd fsk-build\r\n\r\nmkdir build && cd build\r\ncmake ..\r\nmake -j$(nproc)\r\n\r\n# Move ONLY the necessary files to /mnt/server\r\necho \"Deploying Fsk to server root...\"\r\nmkdir -p /mnt/server\r\ncp fsk /mnt/server/fsk\r\nchmod +x /mnt/server/fsk\r\n\r\n# Copy standard library\r\nmkdir -p /mnt/server/std\r\ncp -r ../std/* /mnt/server/std/\r\n\r\n# Clean up temporary build files\r\ncd /tmp\r\nrm -rf fsk-build\r\n\r\necho \"Installation complete. Server directory is clean.\""
+            "script": "#!/bin/bash\nset -e\n\napt update\napt install -y git cmake g++ make curl\n\ncd /tmp\necho \"[FSK] Clonage du repo...\"\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\ncd fsk-build\n\nmkdir build && cd build\ncmake ..\nmake -j$(nproc)\n\n# Déploiement dans le dossier serveur (Pterodactyl)\necho \"[FSK] Déploiement du binaire...\"\nmkdir -p /mnt/server\ncp fsk /mnt/server/fsk\nchmod +x /mnt/server/fsk\n\n# Déploiement de la stdlib\necho \"[FSK] Copie de la stdlib...\"\nmkdir -p /mnt/server/std\ncp -r ../std/* /mnt/server/std/\n\n# Nettoyage\necho \"[FSK] Nettoyage...\"\nrm -rf /tmp/fsk-build\n\necho \"[FSK] Installation terminée.\""
         }
     },
     "variables": [
         {
             "name": "Startup File",
-            "description": "The main .fsk file to run.",
+            "description": "Fichier .fsk à exécuter",
             "env_variable": "STARTUP_FILE",
-            "default_value": "docs/server.fsk",
+            "default_value": "main.fsk",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:128",
