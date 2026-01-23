@@ -1,8 +1,26 @@
-let data = [1, "hello", true, nil];
-let jsonStr = JSON.stringify(data);
-print "JSON String: " + jsonStr;
 
-let parsed = JSON.parse(jsonStr);
-print "Parsed Data: " + parsed;
+print "Testing JSON Module...";
 
-print "Parsed[1]: " + parsed[1];
+let jsonStr = '{"name": "Fsk", "version": 1.0, "features": ["fast", "simple"]}';
+let obj = JSON.parse(jsonStr);
+
+if (obj == nil) {
+    print "FAIL: JSON.parse returned nil";
+} else {
+    print "Parsed Object:";
+    print "Name: " + obj.name;
+    print "Version: " + obj.version;
+    print "Features: " + obj.features;
+    
+}
+
+let newObj = JSON.parse('{}');
+newObj.test = "Works";
+let str = JSON.stringify(newObj);
+print "Stringified: " + str;
+
+if (str == '{"test":"Works"}') {
+    print "PASS: JSON.stringify";
+} else {
+    print "FAIL: JSON.stringify mismatch"; 
+}

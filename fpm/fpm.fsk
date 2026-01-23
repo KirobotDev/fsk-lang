@@ -10,7 +10,7 @@ fn printHelp() {
 
 let REGISTRY = "https://fpm.kirosb.fr/api";
 let argCount = FSK.argCount();
-))
+
 if (argCount < 2) {
     printHelp();
 } else {
@@ -20,7 +20,12 @@ if (argCount < 2) {
         if (FSK.exists("package.fsk")) {
              print "Error: package.fsk already exists.";
         } else {
-             let content = "{\n  \"name\": \"my-project\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {}\n}";
+             let pkg = JSON.parse('{}');
+             pkg.name = "my-project";
+             pkg.version = "1.0.0";
+             pkg.dependencies = JSON.parse('{}');
+             
+             let content = JSON.stringify(pkg);
              writeFile("package.fsk", content);
              print "Created package.fsk";
         }
@@ -38,20 +43,18 @@ if (argCount < 2) {
 
             if (isRegistry) {
                 print "Looking for '" + target + "' in registry...";
-                let json = FSK.shell("curl -s " + REGISTRY + "/packages/" + target);
-                
-                let marker = '"url":"';
-                let idx = FSK.indexOf(json, marker);
-                
-                if (idx == -1) {
-                     print "Error: Package not found in registry (or API error).";
-                     print "Raw response: " + json;
-                     gitUrl = ""; // Fail
+                let jsonStr = FSK.shell("curl -s " + REGISTRY + "/packages/" + target);
+                let pkgInfo = JSON.parse(jsonStr);
+
+                if (pkgInfo == nil) {
+                     print "Error: Package not found or invalid JSON.";
+                     print "Raw response: " + jsonStr;
+                     gitUrl = ""; 
+                } else if (pkgInfo.url == nil) {
+                     print "Error: Package info missing URL.";
+                     gitUrl = "";
                 } else {
-                     let start = idx + FSK.length(marker);
-                     let rest = FSK.substr(json, start, 500); // look ahead
-                     let end = FSK.indexOf(rest, '"');
-                     gitUrl = FSK.substr(json, start, end);
+                     gitUrl = pkgInfo.url;
                      print "Found source: " + gitUrl;
                 }
             }
@@ -75,13 +78,22 @@ if (argCount < 2) {
         let desc = input("Description: ");
         let author = input("Author: ");
 
-        let payload = '{"name":"' + name + '","url":"' + url + '","description":"' + desc + '","author":"' + author + '"}';
-        let curlCmd = "curl -s -X POST -H 'Content-Type: application/json' -d '" + payload + "' " + REGISTRY + "/publish";
+        let payloadObj = JSON.parse('{}');
+        payloadObj.name = name;
+        payloadObj.url = url;
+        payloadObj.description = desc;
+        payloadObj.author = author;
         
-
+        let payload = JSON.stringify(payloadObj);
+        let tmpFile = "fpm_payload.json";
+        writeFile(tmpFile, payload);
+        
+        let curlCmd = "curl -s -X POST -H 'Content-Type: application/json' -d @" + tmpFile + " " + REGISTRY + "/publish";
+        
         print "Sending to registry...";
         let response = FSK.shell(curlCmd);
         print "Response: " + response;
+        
     } 
     else {
         print "Unknown command: " + command;

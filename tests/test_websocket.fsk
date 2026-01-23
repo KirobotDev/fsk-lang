@@ -1,0 +1,22 @@
+print("Attempting connection to wss://echo.websocket.org...");
+let ws = WS.connect("wss://echo.websocket.org");
+
+if (ws == -1) {
+    print("Connection failed.");
+} else {
+    print("Connected! ID: " + ws);
+    print("Sending 'Hello Fsk'...");
+    WS.send(ws, "Hello Fsk");
+    
+    print("Polling for response...");
+    for (let i = 0; i < 5; i = i + 1) {
+        let msgs = WS.poll(ws);
+        if (msgs.length > 0) {
+            print("Received: " + msgs[0]);
+        }
+        sleep(100);
+    }
+    
+    WS.close(ws);
+    print("Closed.");
+}

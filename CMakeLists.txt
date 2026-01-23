@@ -12,8 +12,11 @@ set(SOURCES
     src/parser/Parser.cpp
     src/runtime/Interpreter.cpp
     src/runtime/Callable.cpp
+    src/modules/easywsclient.cpp
 )
 
 add_executable(fsk ${SOURCES})
+target_link_libraries(fsk sqlite3 ssl crypto)
+
 
 

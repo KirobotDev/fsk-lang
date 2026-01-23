@@ -8,3 +8,4 @@ fsk_modules/
 **/packages.db
 *.db
 registry.pid
+test.db 

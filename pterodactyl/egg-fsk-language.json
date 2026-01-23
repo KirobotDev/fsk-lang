@@ -24,7 +24,7 @@
         "installation": {
             "container": "debian:bullseye-slim",
             "entrypoint": "bash",
-            "script": "#!/bin/bash\nset -e\n\napt update\napt install -y git cmake g++ make curl\n\ncd /tmp\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\ncd fsk-build\n\nmkdir build && cd build\ncmake ..\nmake -j$(nproc)\n\nmkdir -p /mnt/server\ncp fsk /mnt/server/fsk\nchmod +x /mnt/server/fsk\n\nmkdir -p /mnt/server/std\ncp -r ../std/* /mnt/server/std/\n\nrm -rf /tmp/fsk-build\necho \"FSK installé avec succès\""
+            "script": "#!/bin/bash\nset -e\n\napt update\napt install -y git cmake g++ make curl libsqlite3-dev libssl-dev\n\ncd /tmp\ngit clone https://github.com/KirobotDev/fsk-lang.git fsk-build\ncd fsk-build\n\nmkdir build && cd build\ncmake ..\nmake -j$(nproc)\n\nmkdir -p /mnt/server\ncp fsk /mnt/server/fsk\nchmod +x /mnt/server/fsk\n\nmkdir -p /mnt/server/std\ncp -r ../std/* /mnt/server/std/\n\nrm -rf /tmp/fsk-build\necho \"FSK installé avec succès\""
         }
     },
     "variables": [

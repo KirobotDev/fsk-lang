@@ -1,6 +1,6 @@
 {
   "name": "fpm",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "description": "The official Fsk Package Manager",
   "author": "KirobotDev",
   "main": "fpm.fsk",

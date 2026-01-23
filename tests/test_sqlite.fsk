@@ -1,0 +1,25 @@
+let db = SQL.open("test.db");
+print("Database ID: " + db);
+
+if (db == -1) {
+    print("Failed to open database!");
+} else {
+    print("Creating table...");
+    SQL.exec(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)");
+    
+    print("Inserting data...");
+    SQL.exec(db, "INSERT INTO users (name) VALUES ('Kiro')");
+    SQL.exec(db, "INSERT INTO users (name) VALUES ('Sionuk')");
+
+    print("Querying data...");
+    let rows = SQL.query(db, "SELECT * FROM users");
+    print("Rows found: " + rows.length);
+
+    for (let i = 0; i < rows.length; i = i + 1) {
+        let row = rows[i];
+        print("User: " + row.name + " (ID: " + row.id + ")");
+    }
+
+    SQL.exec(db, "DROP TABLE users");
+    print("Test Complete.");
+}

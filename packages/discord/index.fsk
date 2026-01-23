@@ -1,0 +1,144 @@
+
+print "Loading Discord Library...";
+
+class Client {
+  fn init() {
+    this.token = "";
+    this.wsId = -1;
+    this.handlers = JSON.parse('{}'); 
+    this.running = false;
+    this.heartbeatInterval = 41250;
+    this.lastSequence = nil;
+    this.sessionId = "";
+  }
+
+  fn on(event, callback) {
+     this.handlers[event] = callback;
+  }
+
+  fn emit(event, data) {
+      if (this.handlers[event] != nil) {
+          let cb = this.handlers[event];
+          cb(data);
+      }
+  }
+
+  fn login(token) {
+      this.token = token;
+      print "[Discord] Connecting to Gateway...";
+      
+      this.wsId = WS.connect("wss://gateway.discord.gg/?v=10&encoding=json");
+      
+      if (this.wsId == -1) {
+          print "[Discord] Connection failed. (Check SSL/Internet)";
+          return;
+      }
+      
+      this.running = true;
+      print "[Discord] Connected (ID: " + this.wsId + ")";
+      
+      this.loop();
+  }
+
+  fn send(op, d) {
+      let payload = JSON.parse('{}');
+      payload.op = op;
+      payload.d = d;
+      let str = JSON.stringify(payload);
+      WS.send(this.wsId, str);
+  }
+
+  fn identify() {
+      print "[Discord] Identifying...";
+      let d = JSON.parse('{}');
+      d.token = this.token;
+      d.intents = 513; 
+      
+      let props = JSON.parse('{}');
+      props.os = "linux";
+      props.browser = "fsk-lib";
+      props.device = "fsk-lib";
+      d.properties = props;
+      
+      this.send(2, d);
+  }
+
+  fn heartbeat() {
+      let payload = JSON.parse('{}');
+      payload.op = 1;
+      payload.d = this.lastSequence; 
+      let str = JSON.stringify(payload);
+      WS.send(this.wsId, str);
+  }
+
+  fn loop() {
+      let lastHeartbeat = clock() * 1000;
+      
+      while (this.running) {
+          let messages = WS.poll(this.wsId);
+          
+          if (messages != nil) {
+              let count = FSK.length(messages);
+              for (let i = 0; i < count; i = i + 1) {
+                  this.handlePayload(messages[i]);
+              }
+          }
+          
+          let now = clock() * 1000;
+          if (now - lastHeartbeat > this.heartbeatInterval) {
+              this.heartbeat();
+              lastHeartbeat = now;
+          }
+
+          sleep(16);
+      }
+  }
+
+  fn handlePayload(str) {
+      let payload = JSON.parse(str);
+      if (payload == nil) return;
+      
+      let op = payload.op;
+      let t = payload.t;
+      let d = payload.d;
+      let s = payload.s;
+      
+      if (s != nil) { this.lastSequence = s; }
+
+      if (op == 10) { 
+          this.heartbeatInterval = d.heartbeat_interval;
+          print "[Discord] Hello received. Heartbeat interval: " + this.heartbeatInterval;
+          this.identify();
+          this.heartbeat(); 
+      }
+      else if (op == 11) { 
+      }
+      else if (op == 0) { 
+          if (t == "READY") {
+              print "[Discord] Ready! Logged in as " + d.user.username;
+              this.sessionId = d.session_id;
+              this.emit("ready", d);
+          }
+          else if (t == "MESSAGE_CREATE") {
+              this.emit("message", d);
+          }
+      }
+  }
+
+  fn sendMessage(channelId, content) {
+      let url = "https://discord.com/api/v10/channels/" + channelId + "/messages";
+      
+      let body = JSON.parse('{}');
+      body.content = content;
+      let payload = JSON.stringify(body);
+      
+      let tmpFile = "discord_payload_" + channelId + ".json"; 
+      writeFile(tmpFile, payload);
+      
+      let cmd = "curl -s -X POST -H \"Authorization: Bot " + this.token + "\" -H \"Content-Type: application/json\" -d @" + tmpFile + " \"" + url + "\"";
+      
+      let res = FSK.shell(cmd);
+      
+      FSK.shell("rm " + tmpFile);
+  }
+}

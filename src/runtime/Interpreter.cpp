@@ -12,7 +12,9 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <sstream>
+#include <sstream> 
+#include <sqlite3.h>
+#include "easywsclient.hpp"
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <cstring>
@@ -20,6 +22,57 @@
 #include <array>
 #include <memory>
 #include <cstdio>
+#include <json.hpp>
+
+using json = nlohmann::json;
+
+
+Value jsonToValue(json j) {
+    if (j.is_null()) return Value(std::monostate{});
+    if (j.is_boolean()) return Value(j.get<bool>());
+    if (j.is_number()) return Value(j.get<double>());
+    if (j.is_string()) return Value(j.get<std::string>());
+    if (j.is_array()) {
+        std::vector<Value> elements;
+        for (auto& element : j) {
+            elements.push_back(jsonToValue(element));
+        }
+        return Value(std::make_shared<FSKArray>(elements));
+    }
+    if (j.is_object()) {
+        static auto objClass = std::make_shared<FSKClass>("Object", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+        auto instance = std::make_shared<FSKInstance>(objClass);
+        for (auto& [key, val] : j.items()) {
+             instance->fields[key] = jsonToValue(val);
+        }
+        return Value(instance);
+    }
+    return Value(std::monostate{});
+}
+
+json valueToJson(Value v) {
+    if (std::holds_alternative<std::monostate>(v)) return nullptr;
+    if (std::holds_alternative<bool>(v)) return std::get<bool>(v);
+    if (std::holds_alternative<double>(v)) return std::get<double>(v);
+    if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
+    if (std::holds_alternative<std::shared_ptr<FSKArray>>(v)) {
+        auto arr = std::get<std::shared_ptr<FSKArray>>(v);
+        json j = json::array();
+        for (const auto& elem : arr->elements) {
+            j.push_back(valueToJson(elem));
+        }
+        return j;
+    }
+    if (std::holds_alternative<std::shared_ptr<FSKInstance>>(v)) {
+        auto inst = std::get<std::shared_ptr<FSKInstance>>(v);
+        json j = json::object();
+        for (auto const& [key, val] : inst->fields) {
+            j[key] = valueToJson(val);
+        }
+        return j;
+    }
+    return nullptr;
+}
 
 Interpreter::Interpreter() {
   globals = std::make_shared<Environment>();
@@ -135,6 +188,21 @@ Interpreter::Interpreter() {
         return Value((double)result);
       });
 
+  globals->define("exit", std::make_shared<NativeFunction>(
+      0, [](Interpreter &interp, std::vector<Value> args) {
+        exit(0);
+        return Value(0.0);
+      }));
+
+  globals->define("sleep", std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+        if (std::holds_alternative<double>(args[0])) {
+            int ms = (int)std::get<double>(args[0]);
+            usleep(ms * 1000);
+        }
+        return Value(0.0);
+      }));
+  
   fskInstance->fields["version"] = std::make_shared<NativeFunction>(
       0, [](Interpreter &interp, std::vector<Value> args) {
         return Value(std::string("1.1.0"));
@@ -288,6 +356,9 @@ Interpreter::Interpreter() {
          if (std::holds_alternative<std::string>(args[0])) {
              return Value((double)std::get<std::string>(args[0]).length());
          }
+         if (std::holds_alternative<std::shared_ptr<FSKArray>>(args[0])) {
+             return Value((double)std::get<std::shared_ptr<FSKArray>>(args[0])->elements.size());
+         }
          return Value(0.0);
       });
 
@@ -358,16 +429,218 @@ Interpreter::Interpreter() {
 
   globals->define("FSK", fskInstance);
 
+
+  auto consoleClass = std::make_shared<FSKClass>("Console", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto consoleInstance = std::make_shared<FSKInstance>(consoleClass);
+  
+  consoleInstance->fields["clear"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      std::cout << "\033[2J\033[1;1H"; 
+      return Value(true);
+  });
+
+  consoleInstance->fields["setColor"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+      std::string color = std::get<std::string>(args[0]);
+      std::string code = "\033[0m";
+      
+      if (color == "red") code = "\033[31m";
+      else if (color == "green") code = "\033[32m";
+      else if (color == "blue") code = "\033[34m";
+      else if (color == "yellow") code = "\033[33m";
+      else if (color == "magenta") code = "\033[35m";
+      else if (color == "cyan") code = "\033[36m";
+      else if (color == "white") code = "\033[37m";
+      else if (color == "reset") code = "\033[0m";
+      
+      std::cout << code;
+      return Value(true);
+  });
+
+  consoleInstance->fields["moveTo"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1])) return Value(false);
+      int x = (int)std::get<double>(args[0]);
+      int y = (int)std::get<double>(args[1]);
+      std::cout << "\033[" << y << ";" << x << "H";
+      return Value(true);
+  });
+
+  globals->define("Console", consoleInstance);
+
+  auto sqlClass = std::make_shared<FSKClass>("SQL", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto sqlInstance = std::make_shared<FSKInstance>(sqlClass);
+
+  static int dbIdCounter = 1;
+  static std::map<int, sqlite3*> databases;
+
+  sqlInstance->fields["open"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
+      std::string path = std::get<std::string>(args[0]);
+      
+      sqlite3 *db;
+      int rc = sqlite3_open(path.c_str(), &db);
+      if (rc) {
+          sqlite3_close(db);
+          return Value(-1.0);
+      }
+      
+      int id = dbIdCounter++;
+      databases[id] = db;
+      return Value((double)id);
+  });
+
+  sqlInstance->fields["exec"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      std::string sql = std::get<std::string>(args[1]);
+
+      if (databases.find(id) == databases.end()) return Value(false);
+      
+      char *zErrMsg = 0;
+      int rc = sqlite3_exec(databases[id], sql.c_str(), 0, 0, &zErrMsg);
+      if (rc != SQLITE_OK) {
+           sqlite3_free(zErrMsg);
+           return Value(false);
+      }
+      return Value(true);
+  });
+
+   sqlInstance->fields["query"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(std::monostate{}); 
+      int id = (int)std::get<double>(args[0]);
+      std::string sql = std::get<std::string>(args[1]);
+
+      if (databases.find(id) == databases.end()) return Value(std::monostate{});
+
+      sqlite3_stmt *stmt;
+      int rc = sqlite3_prepare_v2(databases[id], sql.c_str(), -1, &stmt, 0);
+      if (rc != SQLITE_OK) return Value(std::monostate{});
+
+      std::vector<Value> rows;
+
+      while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+          
+          auto rowClass = std::make_shared<FSKClass>("Row", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+          auto rowInstance = std::make_shared<FSKInstance>(rowClass);
+
+          int cols = sqlite3_column_count(stmt);
+          for (int i = 0; i < cols; i++) {
+              std::string colName = sqlite3_column_name(stmt, i);
+              int type = sqlite3_column_type(stmt, i);
+              
+              if (type == SQLITE_INTEGER) {
+                  rowInstance->fields[colName] = Value((double)sqlite3_column_int(stmt, i));
+              } else if (type == SQLITE_FLOAT) {
+                  rowInstance->fields[colName] = Value(sqlite3_column_double(stmt, i));
+              } else if (type == SQLITE_TEXT) {
+                  const unsigned char *val = sqlite3_column_text(stmt, i);
+                  rowInstance->fields[colName] = Value(std::string(reinterpret_cast<const char*>(val)));
+              } else {
+                  rowInstance->fields[colName] = Value(std::monostate{});
+              }
+          }
+          rows.push_back(Value(rowInstance));
+      }
+      sqlite3_finalize(stmt);
+      return Value(std::make_shared<FSKArray>(rows));
+  });
+
+  globals->define("SQL", sqlInstance);
+
+  auto wsClass = std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto wsInstance = std::make_shared<FSKInstance>(wsClass);
+
+  static int wsIdCounter = 1;
+  static std::map<int, std::shared_ptr<void>> sockets; 
+  static std::map<int, std::shared_ptr<Callable>> wsCallbacks;
+
+  wsInstance->fields["connect"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
+      std::string url = std::get<std::string>(args[0]);
+      
+      easywsclient::WebSocket::pointer ws = easywsclient::WebSocket::from_url(url);
+      if (!ws) return Value(-1.0);
+      
+      int id = wsIdCounter++;
+      sockets[id] = std::shared_ptr<void>(ws); 
+      return Value((double)id);
+  });
+
+  wsInstance->fields["send"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      std::string msg = std::get<std::string>(args[1]);
+      
+      if (sockets.find(id) == sockets.end()) return Value(false);
+      auto ws = static_cast<easywsclient::WebSocket*>(sockets[id].get());
+      if (ws) {
+          ws->send(msg);
+          return Value(true);
+      }
+      return Value(false);
+  });
+
+  wsInstance->fields["poll"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
+      int id = (int)std::get<double>(args[0]);
+      
+      if (sockets.find(id) == sockets.end()) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
+      auto ws = static_cast<easywsclient::WebSocket*>(sockets[id].get());
+      
+      std::vector<Value> messages;
+      if (ws) {
+        ws->poll();
+        ws->dispatch([&messages](const std::string & message) {
+            messages.push_back(Value(message));
+        });
+      }
+      return Value(std::make_shared<FSKArray>(messages));
+  });
+
+  wsInstance->fields["readyState"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+     if (!std::holds_alternative<double>(args[0])) return Value(-1.0);
+     int id = (int)std::get<double>(args[0]);
+     if (sockets.find(id) == sockets.end()) return Value(-1.0);
+     auto ws = static_cast<easywsclient::WebSocket*>(sockets[id].get());
+     if(ws) return Value((double)ws->getReadyState());
+     return Value(-1.0);
+  });
+
+  wsInstance->fields["close"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+     if (!std::holds_alternative<double>(args[0])) return Value(false);
+     int id = (int)std::get<double>(args[0]);
+     if (sockets.find(id) == sockets.end()) return Value(false);
+     auto ws = static_cast<easywsclient::WebSocket*>(sockets[id].get());
+     if(ws) {
+         ws->close();
+         sockets.erase(id);
+     }
+     return Value(true);
+  });
+  
+  globals->define("WS", wsInstance);
+
   auto jsonClass = std::make_shared<FSKClass>("JSON", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
   auto jsonInstance = std::make_shared<FSKInstance>(jsonClass);
-  jsonInstance->fields["stringify"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-      return Value(interp.jsonStringify(args[0]));
-  });
+
   jsonInstance->fields["parse"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-      if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("JSON.parse expect string");
-      return interp.jsonParse(std::get<std::string>(args[0]));
+      if (!std::holds_alternative<std::string>(args[0])) return Value(std::monostate{});
+      try {
+          return interp.jsonParse(std::get<std::string>(args[0]));
+      } catch (...) {
+          return Value(std::monostate{});
+      }
   });
+
+  jsonInstance->fields["stringify"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      try {
+          return Value(interp.jsonStringify(args[0]));
+      } catch (...) {
+         return Value("");
+      }
+  });
+
   globals->define("JSON", jsonInstance);
+  
 
   std::vector<std::string> searchPaths = {
       "std/prelude.fsk",
@@ -852,7 +1125,21 @@ void Interpreter::visitIndexExpr(IndexExpr &expr) {
     return;
   }
 
-  throw std::runtime_error("Only arrays and strings can be indexed.");
+  if (std::holds_alternative<std::shared_ptr<FSKInstance>>(callee)) {
+      if (!std::holds_alternative<std::string>(index)) {
+          throw std::runtime_error("Index must be a string for objects.");
+      }
+      std::string key = std::get<std::string>(index);
+      auto inst = std::get<std::shared_ptr<FSKInstance>>(callee);
+      if (inst->fields.count(key)) {
+          lastValue = inst->fields[key];
+      } else {
+          lastValue = Value(std::monostate{}); 
+      }
+      return;
+  }
+
+  throw std::runtime_error("Only arrays, objects and strings can be indexed.");
 }
 
 void Interpreter::visitIndexSetExpr(IndexSet &expr) {
@@ -874,7 +1161,18 @@ void Interpreter::visitIndexSetExpr(IndexSet &expr) {
     return;
   }
 
-  throw std::runtime_error("Only arrays can have indexed assignments.");
+  if (std::holds_alternative<std::shared_ptr<FSKInstance>>(callee)) {
+      if (!std::holds_alternative<std::string>(index)) {
+          throw std::runtime_error("Index must be a string for objects.");
+      }
+      std::string key = std::get<std::string>(index);
+      auto inst = std::get<std::shared_ptr<FSKInstance>>(callee);
+      inst->fields[key] = value;
+      lastValue = value;
+      return;
+  }
+
+  throw std::runtime_error("Only arrays and objects can have indexed assignments.");
 }
 
 bool Interpreter::isTruthy(Value value) {
@@ -925,18 +1223,23 @@ void Interpreter::visitImportStmt(Import &stmt) {
 
   std::ifstream file(path);
   if (!file.is_open()) {
+      std::string rawPath = path;
       std::string attempt = path;
       if (attempt.find(".fsk") == std::string::npos) attempt += ".fsk";
 
       std::vector<std::string> searchPaths = {
           attempt,
+          "fsk_modules/" + attempt,
+          "fsk_modules/" + rawPath + "/index.fsk", 
           "std/" + attempt,
           "../" + attempt,
           "../std/" + attempt,
           "/usr/local/lib/fsk/" + attempt,
           "/usr/local/lib/fsk/std/" + attempt,
+          "/usr/local/lib/fsk/fsk_modules/" + rawPath + "/index.fsk",
           "C:/Fsk/" + attempt,
-          "C:/Fsk/std/" + attempt
+          "C:/Fsk/std/" + attempt,
+          "C:/Fsk/fsk_modules/" + rawPath + "/index.fsk"
       };
 
       for (const auto& s : searchPaths) {
@@ -968,67 +1271,12 @@ void Interpreter::setArgs(int argc, char *argv[]) {
     }
 }
 
+
 std::string Interpreter::jsonStringify(Value value) {
-  if (std::holds_alternative<std::monostate>(value)) return "null";
-  if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
-  if (std::holds_alternative<double>(value)) {
-    std::string s = std::to_string(std::get<double>(value));
-    if (s.find(".000000") != std::string::npos) s = s.substr(0, s.find(".000000"));
-    return s;
-  }
-  if (std::holds_alternative<std::string>(value)) {
-    return "\"" + std::get<std::string>(value) + "\"";
-  }
-  if (std::holds_alternative<std::shared_ptr<FSKArray>>(value)) {
-    auto arr = std::get<std::shared_ptr<FSKArray>>(value);
-    std::string res = "[";
-    for (size_t i = 0; i < arr->elements.size(); i++) {
-        res += jsonStringify(arr->elements[i]);
-        if (i < arr->elements.size() - 1) res += ",";
-    }
-    res += "]";
-    return res;
-  }
-  return "null";
+    return valueToJson(value).dump();
 }
 
 Value Interpreter::jsonParse(std::string source) {
-    size_t pos_parse = 0;
-    std::function<Value()> parseValue = [&]() -> Value {
-        while (pos_parse < source.length() && isspace(source[pos_parse])) pos_parse++;
-        if (pos_parse >= source.length()) return std::monostate{};
-
-        if (source[pos_parse] == '"') {
-            pos_parse++;
-            size_t start = pos_parse;
-            while (pos_parse < source.length() && source[pos_parse] != '"') pos_parse++;
-            std::string s = source.substr(start, pos_parse - start);
-            pos_parse++;
-            return s;
-        } else if (isdigit(source[pos_parse]) || source[pos_parse] == '-') {
-            size_t start = pos_parse;
-            if (source[pos_parse] == '-') pos_parse++;
-            while (pos_parse < source.length() && (isdigit(source[pos_parse]) || source[pos_parse] == '.')) pos_parse++;
-            return std::stod(source.substr(start, pos_parse - start));
-        } else if (source[pos_parse] == '[') {
-            pos_parse++;
-            std::vector<Value> elements;
-            while (pos_parse < source.length() && source[pos_parse] != ']') {
-                elements.push_back(parseValue());
-                while (pos_parse < source.length() && isspace(source[pos_parse])) pos_parse++;
-                if (pos_parse < source.length() && source[pos_parse] == ',') pos_parse++;
-                while (pos_parse < source.length() && isspace(source[pos_parse])) pos_parse++;
-            }
-            if (pos_parse < source.length()) pos_parse++;
-            return std::make_shared<FSKArray>(elements);
-        } else if (pos_parse + 4 <= source.length() && source.substr(pos_parse, 4) == "true") {
-            pos_parse += 4; return true;
-        } else if (pos_parse + 5 <= source.length() && source.substr(pos_parse, 5) == "false") {
-            pos_parse += 5; return false;
-        } else if (pos_parse + 4 <= source.length() && source.substr(pos_parse, 4) == "null") {
-            pos_parse += 4; return std::monostate{};
-        }
-        return std::monostate{};
-    };
-    return parseValue();
+    auto j = json::parse(source);
+    return jsonToValue(j);
 }

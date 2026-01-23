@@ -1,0 +1,16 @@
+Console.clear();
+Console.moveTo(10, 5);
+Console.setColor("red");
+print("Welcome to Fsk TUI Mode!");
+
+Console.setColor("green");
+Console.moveTo(10, 6);
+print("This line is green and positioned.");
+
+Console.setColor("blue");
+Console.moveTo(10, 7);
+print("This line is blue.");
+
+Console.setColor("reset");
+Console.moveTo(0, 10);
+print("Back to normal.");

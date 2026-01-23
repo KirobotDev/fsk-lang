@@ -1,0 +1,22 @@
+
+print "--- Testing Discord Library ---";
+
+
+import "packages/discord/index.fsk";
+
+let client = Client();
+client.init();
+
+client.on("ready", fn(user) {
+    print "Bot is ready: " + user.user.username;
+});
+
+client.on("message", fn(msg) {
+    print "Message received: " + msg.content;
+    if (msg.content == "!ping") {
+        print "Pong!";
+    }
+});
+
+print "Client initialized. Run 'client.login(TOKEN)' to connect.";
+print "Test successful if no errors above.";
