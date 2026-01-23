@@ -1,0 +1,72 @@
+print "Testing FS Module...";
+
+let filename = "dfs_test.txt";
+let dirname = "dfs_dir";
+
+if (FS.exists(filename)) { FS.delete(filename); }
+if (FS.exists(dirname)) { 
+}
+
+print "Writing file...";
+FS.write(filename, "Hello");
+
+if (FS.exists(filename)) {
+    print "File created.";
+} else {
+    print "Error: File not created.";
+}
+
+let content = FS.read(filename);
+print "Content: " + content;
+
+if (content == "Hello") {
+    print "Read passed.";
+} else {
+    print "Read failed.";
+}
+
+print "Appending...";
+FS.append(filename, " World");
+let updated = FS.read(filename);
+print "Updated Content: " + updated;
+
+if (updated == "Hello World") {
+    print "Append passed.";
+} else {
+    print "Append failed.";
+}
+
+print "Creating directory...";
+FS.mkdir(dirname);
+if (FS.exists(dirname)) {
+    print "Dir created.";
+} else {
+    print "Error: Dir not created.";
+}
+
+FS.write(dirname + "/sub.txt", "data");
+let list = FS.list(dirname);
+
+let found = false;
+for (let i=0; i < list.length; i = i + 1) {
+    if (list[i] == "sub.txt") { found = true; }
+}
+
+if (found) {
+    print "List passed.";
+} else {
+    print "List failed.";
+}
+
+print "Cleaning up...";
+FS.delete(filename);
+FS.delete(dirname + "/sub.txt");
+FS.delete(dirname);
+
+if (!FS.exists(filename)) {
+    print "Cleanup passed.";
+} else {
+    print "Cleanup failed (file exists).";
+}
+
+print "FS Test Completed.";

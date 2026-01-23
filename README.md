@@ -19,6 +19,12 @@ A custom interpreted programming language written in C++.
 Requirements:
 - CMake 3.10+
 - C++ Compiler (C++17 recommended)
+- Dependencies: `libsqlite3-dev`, `libssl-dev`, `libcurl4-openssl-dev`
+
+To install dependencies on Debian/Ubuntu:
+```bash
+sudo apt install -y git cmake g++ make libsqlite3-dev libssl-dev libcurl4-openssl-dev
+```
 
 ```bash
 mkdir build

@@ -16,7 +16,7 @@ set(SOURCES
 )
 
 add_executable(fsk ${SOURCES})
-target_link_libraries(fsk sqlite3 ssl crypto)
+target_link_libraries(fsk sqlite3 ssl crypto curl)
 
 
 

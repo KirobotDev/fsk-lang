@@ -1,0 +1,35 @@
+print "Testing Regex Module...";
+
+let text = "Hello World 123";
+
+if (Regex.match("World", text)) {
+    print "Match passed (simple).";
+} else {
+    print "Match failed (simple).";
+}
+
+if (Regex.match("\d+", text)) {
+    print "Match passed (digits).";
+} else {
+    print "Match failed (digits).";
+}
+
+let extracted = Regex.extract("\d+", "id: 123, count: 456");
+print "Extracted: " + JSON.stringify(extracted);
+
+if (extracted.length == 2) {
+    print "Extract passed.";
+} else {
+    print "Extract failed.";
+}
+
+let replaced = Regex.replace("I contain numbers 123 and 456", "\d+", "#");
+print "Replaced: " + replaced;
+
+if (replaced == "I contain numbers # and #") {
+    print "Replace passed.";
+} else {
+    print "Replace failed.";
+}
+
+print "Regex Test Completed.";

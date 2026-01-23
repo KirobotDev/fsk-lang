@@ -23,6 +23,12 @@
 #include <memory>
 #include <cstdio>
 #include <json.hpp>
+#include <iomanip>
+#include <ctime>
+#include <filesystem>
+
+#include <regex>
+#include <curl/curl.h>
 
 using json = nlohmann::json;
 
@@ -267,12 +273,12 @@ Interpreter::Interpreter() {
 
           std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-           int content_length = 0;
+          int content_length = 0;
           std::string request = "";
           char buffer[4096];
           
           while (request.find("\r\n\r\n") == std::string::npos) {
-             int valread = read(new_socket, buffer, 4096);
+             int valread = read(new_socket, buffer, sizeof(buffer));
              if (valread <= 0) break;
              request.append(buffer, valread);
           }
@@ -280,15 +286,25 @@ Interpreter::Interpreter() {
           size_t cl_pos = request.find("Content-Length: ");
           if (cl_pos != std::string::npos) {
               size_t cl_end = request.find("\r\n", cl_pos);
-              std::string cl_str = request.substr(cl_pos + 16, cl_end - (cl_pos + 16));
-              content_length = std::stoi(cl_str);
+              if (cl_end != std::string::npos) {
+                  std::string cl_str = request.substr(cl_pos + 16, cl_end - (cl_pos + 16));
+                  try {
+                      content_length = std::stoi(cl_str);
+                  } catch (...) { content_length = 0; }
+              }
           }
           
-          size_t header_end = request.find("\r\n\r\n") + 4;
-          while (request.length() - header_end < content_length) {
-             int valread = read(new_socket, buffer, 4096);
-             if (valread <= 0) break;
-             request.append(buffer, valread);
+          size_t header_end_pos = request.find("\r\n\r\n");
+          if (header_end_pos != std::string::npos) {
+              size_t body_start = header_end_pos + 4;
+              size_t current_body_len = request.length() - body_start;
+              
+              while (current_body_len < content_length) {
+                  int valread = read(new_socket, buffer, sizeof(buffer));
+                  if (valread <= 0) break;
+                  request.append(buffer, valread);
+                  current_body_len += valread;
+              }
           }
 
           std::vector<Value> handlerArgs;
@@ -640,6 +656,232 @@ Interpreter::Interpreter() {
   });
 
   globals->define("JSON", jsonInstance);
+
+  auto dateClass = std::make_shared<FSKClass>("Date", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto dateInstance = std::make_shared<FSKInstance>(dateClass);
+
+  dateInstance->fields["now"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      auto now = std::chrono::system_clock::now().time_since_epoch();
+      return Value((double)std::chrono::duration_cast<std::chrono::seconds>(now).count());
+  });
+
+  dateInstance->fields["timestamp"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      auto now = std::chrono::system_clock::now().time_since_epoch();
+      return Value((double)std::chrono::duration_cast<std::chrono::seconds>(now).count());
+  });
+
+  dateInstance->fields["format"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(std::string(""));
+      time_t time = (time_t)std::get<double>(args[0]);
+      std::string format = std::get<std::string>(args[1]);
+      std::tm tm = *std::localtime(&time);
+      std::stringstream ss;
+      ss << std::put_time(&tm, format.c_str());
+      return Value(ss.str());
+  });
+
+  globals->define("Date", dateInstance);
+
+  auto fsClass = std::make_shared<FSKClass>("FS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto fsInstance = std::make_shared<FSKInstance>(fsClass);
+
+  fsInstance->fields["exists"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+      std::string path = std::get<std::string>(args[0]);
+      try { return Value(std::filesystem::exists(path)); } catch(...) { return Value(false); }
+  });
+
+  fsInstance->fields["read"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(std::string(""));
+      std::string path = std::get<std::string>(args[0]);
+      std::ifstream t(path);
+      std::stringstream buffer;
+      buffer << t.rdbuf();
+      return Value(buffer.str());
+  });
+
+  fsInstance->fields["write"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+      std::string path = std::get<std::string>(args[0]);
+      std::string content = std::get<std::string>(args[1]);
+      std::ofstream t(path);
+      t << content;
+      t.close();
+      return Value(true);
+  });
+
+  fsInstance->fields["append"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+      std::string path = std::get<std::string>(args[0]);
+      std::string content = std::get<std::string>(args[1]);
+      std::ofstream t(path, std::ios::app);
+      t << content;
+      t.close();
+      return Value(true);
+  });
+
+  fsInstance->fields["delete"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+      std::string path = std::get<std::string>(args[0]);
+      try {
+        return Value(std::filesystem::remove(path));
+      } catch(...) { return Value(false); }
+  });
+
+  fsInstance->fields["mkdir"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+       std::string path = std::get<std::string>(args[0]);
+       try {
+         return Value(std::filesystem::create_directories(path));
+       } catch(...) { return Value(false); }
+  });
+
+  fsInstance->fields["list"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0])) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
+       std::string path = std::get<std::string>(args[0]);
+       std::vector<Value> files;
+       try {
+           if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+               for (const auto & entry : std::filesystem::directory_iterator(path)) {
+                   files.push_back(Value(entry.path().filename().string()));
+               }
+           }
+       } catch(...){}
+       return Value(std::make_shared<FSKArray>(files));
+  });
+
+  globals->define("FS", fsInstance);
+
+  auto regexClass = std::make_shared<FSKClass>("Regex", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto regexInstance = std::make_shared<FSKInstance>(regexClass);
+
+  regexInstance->fields["match"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+      std::string pattern = std::get<std::string>(args[0]);
+      std::string text = std::get<std::string>(args[1]);
+      try {
+          std::regex re(pattern);
+          return Value(std::regex_search(text, re));
+      } catch(...) { return Value(false); }
+  });
+
+  regexInstance->fields["extract"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
+       std::string pattern = std::get<std::string>(args[0]);
+       std::string text = std::get<std::string>(args[1]);
+       std::vector<Value> matches;
+       try {
+           std::regex re(pattern);
+           std::smatch sm;
+           std::string::const_iterator searchStart(text.cbegin());
+           while (std::regex_search(searchStart, text.cend(), sm, re)) {
+               matches.push_back(Value(sm[0].str()));
+               searchStart = sm.suffix().first;
+           }
+       } catch(...) {}
+       return Value(std::make_shared<FSKArray>(matches));
+  });
+
+  regexInstance->fields["replace"] = std::make_shared<NativeFunction>(3, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]) || !std::holds_alternative<std::string>(args[2])) return Value(std::string(""));
+      std::string text = std::get<std::string>(args[0]);
+      std::string pattern = std::get<std::string>(args[1]);
+      std::string replacement = std::get<std::string>(args[2]);
+      try {
+          std::regex re(pattern);
+          return Value(std::regex_replace(text, re, replacement));
+      } catch(...) { return Value(text); }
+  });
+
+  globals->define("Regex", regexInstance);
+
+  auto httpClass = std::make_shared<FSKClass>("HTTP", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto httpInstance = std::make_shared<FSKInstance>(httpClass);
+
+  httpInstance->fields["get"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(std::monostate{});
+      std::string url = std::get<std::string>(args[0]);
+      
+      CURL *curl;
+      CURLcode res;
+      std::string readBuffer;
+
+      curl = curl_easy_init();
+      if(curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> size_t {
+            ((std::string*)userp)->append((char*)contents, size * nmemb);
+            return size * nmemb;
+        });
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "FSK-Language/1.0");
+        
+        res = curl_easy_perform(curl);
+        long response_code = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+        curl_easy_cleanup(curl);
+
+        if (res == CURLE_OK) {
+             static auto respClass = std::make_shared<FSKClass>("Response", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+             auto respInstance = std::make_shared<FSKInstance>(respClass);
+             respInstance->fields["status"] = Value((double)response_code);
+             respInstance->fields["body"] = Value(readBuffer);
+             return Value(respInstance);
+        }
+      }
+      return Value(std::monostate{});
+  });
+
+  httpInstance->fields["post"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(std::monostate{});
+      std::string url = std::get<std::string>(args[0]);
+      std::string postData = std::get<std::string>(args[1]);
+
+      CURL *curl;
+      CURLcode res;
+      std::string readBuffer;
+
+      curl = curl_easy_init();
+      if(curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
+        
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> size_t {
+            ((std::string*)userp)->append((char*)contents, size * nmemb);
+            return size * nmemb;
+        });
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "FSK-Language/1.0");
+        
+        res = curl_easy_perform(curl);
+        long response_code = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+
+        if (res == CURLE_OK) {
+             static auto respClass = std::make_shared<FSKClass>("Response", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+             auto respInstance = std::make_shared<FSKInstance>(respClass);
+             respInstance->fields["status"] = Value((double)response_code);
+             respInstance->fields["body"] = Value(readBuffer);
+             return Value(respInstance);
+        }
+      }
+      return Value(std::monostate{});     
+  });
+
+  globals->define("HTTP", httpInstance);
+
+
+
+
   
 
   std::vector<std::string> searchPaths = {
@@ -1230,8 +1472,11 @@ void Interpreter::visitImportStmt(Import &stmt) {
       std::vector<std::string> searchPaths = {
           attempt,
           "fsk_modules/" + attempt,
-          "fsk_modules/" + rawPath + "/index.fsk", 
+          "fsk_modules/" + rawPath + "/index.fsk",
+          ".system/fsk_modules/" + attempt,
+          ".system/fsk_modules/" + rawPath + "/index.fsk",
           "std/" + attempt,
+          ".system/std/" + attempt,
           "../" + attempt,
           "../std/" + attempt,
           "/usr/local/lib/fsk/" + attempt,

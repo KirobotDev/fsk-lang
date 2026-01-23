@@ -32,42 +32,49 @@ if (argCount < 2) {
     } 
     else if (command == "install") {
         if (argCount < 3) {
-            print "Usage: fpm install <name_or_url>";
-        } else {
-            let target = FSK.arg(3);
-            let gitUrl = target;
-            let isRegistry = true;
+            print "Usage: fpm install <package_names...>";
+        } 
+        else {
+            for (let i = 3; i < argCount; i = i + 1) {
+                let target = FSK.arg(i);
+                print "--- Installing " + target + " ---";
+                
+                let gitUrl = target;
+                let isRegistry = true;
 
-            if (FSK.indexOf(target, "http") == 0) { isRegistry = false; }
-            if (FSK.indexOf(target, "git@") == 0) { isRegistry = false; }
+                if (FSK.indexOf(target, "http") == 0) { isRegistry = false; }
+                if (FSK.indexOf(target, "git@") == 0) { isRegistry = false; }
 
-            if (isRegistry) {
-                print "Looking for '" + target + "' in registry...";
-                let jsonStr = FSK.shell("curl -s " + REGISTRY + "/packages/" + target);
-                let pkgInfo = JSON.parse(jsonStr);
+                if (isRegistry) {
+                    print "Looking for '" + target + "' in registry...";
+                    let jsonStr = FSK.shell("curl -s " + REGISTRY + "/packages/" + target);
+                    let pkgInfo = JSON.parse(jsonStr);
 
-                if (pkgInfo == nil) {
-                     print "Error: Package not found or invalid JSON.";
-                     print "Raw response: " + jsonStr;
-                     gitUrl = ""; 
-                } else if (pkgInfo.url == nil) {
-                     print "Error: Package info missing URL.";
-                     gitUrl = "";
-                } else {
-                     gitUrl = pkgInfo.url;
-                     print "Found source: " + gitUrl;
+                    if (pkgInfo == nil) {
+                        print "Error: Package not found or invalid JSON.";
+                        gitUrl = ""; 
+                    } else if (pkgInfo.url == nil) {
+                        print "Error: Package info missing URL.";
+                        gitUrl = "";
+                    } else {
+                        gitUrl = pkgInfo.url;
+                        print "Found source: " + gitUrl;
+                    }
                 }
-            }
 
-            if (gitUrl != "") {
-                if (FSK.exists("fsk_modules") == false) {
-                    FSK.mkdir("fsk_modules");
+                if (gitUrl != "") {
+                    if (FSK.exists("fsk_modules") == false) {
+                        FSK.mkdir("fsk_modules");
+                    }
+                    
+                    
+                    print "Cloning into fsk_modules...";
+                    
+                    let cmd = "cd fsk_modules && git clone " + gitUrl;
+                    let res = FSK.shell(cmd);
+                    print res;
+                    print "Installed " + target;
                 }
-                print "Cloning into fsk_modules...";
-                let cmd = "cd fsk_modules && git clone " + gitUrl;
-                let res = FSK.shell(cmd);
-                print res;
-                print "Package installed successfully.";
             }
         }
     } 

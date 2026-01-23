@@ -1,0 +1,12 @@
+
+print "Testing FSK.shell...";
+print "CWD: " + FSK.shell("pwd");
+
+let result = FSK.shell("echo 'Hello from shell'");
+print "Result 1: " + result;
+
+let result2 = FSK.shell("timeout 2s echo 'Hello with timeout' || echo 'Fail'");
+print "Result 2: " + result2;
+
+let result3 = FSK.shell("nonexistentcommand || echo 'Fallback works'");
+print "Result 3: " + result3;

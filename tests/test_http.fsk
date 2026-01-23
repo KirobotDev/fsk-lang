@@ -1,0 +1,39 @@
+print "Testing HTTP Module...";
+
+print "GET request...";
+let res = HTTP.get("https://httpbin.org/get");
+
+if (res != nil) {
+    print "Status: " + res.status;
+    if (res.status == 200) {
+        print "GET passed.";
+        if (Regex.match("httpbin.org", res.body)) {
+             print "Body check passed.";
+        }
+    } else {
+        print "GET failed (status " + res.status + ")";
+    }
+} else {
+    print "GET failed (nil response).";
+}
+
+print "POST request...";
+let payload = JSON.stringify(JSON.parse('{"foo": "bar"}')); 
+let res2 = HTTP.post("https://httpbin.org/post", payload);
+
+if (res2 != nil) {
+    print "Status: " + res2.status;
+    if (res2.status == 200) {
+        if (Regex.match("bar", res2.body)) {
+            print "POST passed.";
+        } else {
+            print "POST failed (body missing data).";
+        }
+    } else {
+        print "POST failed (status " + res2.status + ")";
+    }
+} else {
+    print "POST failed (nil response).";
+}
+
+print "HTTP Test Completed.";
