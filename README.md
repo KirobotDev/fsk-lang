@@ -57,6 +57,17 @@ Set-Content -Path "C:\Fsk\fpm.bat" -Value '@fsk C:\Fsk\fpm\fpm.fsk %*'
 ```
 > Note: You will need to manually compile or download `fsk.exe` and place it in `C:\Fsk\`.
 
+## Pterodactyl Installation (Hosting)
+
+Fsk provides an official "Egg" for Pterodactyl panels, allowing you to host Fsk applications easily with automated installation.
+
+1. Download the [egg-fsk-language.json](egg-fsk-language.json) file from this repository.
+2. Go to your Pterodactyl Admin Panel > **Nests** > **Import Egg**.
+3. Select the `egg-fsk-language.json` file and import it.
+4. Create a new server using this Egg.
+   - The Egg will automatically compile Fsk and set up the environment.
+   - You can specify your startup file (default: `docs/server.fsk`).
+
 ## Usage
 
 Run a script:
