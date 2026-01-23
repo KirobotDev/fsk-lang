@@ -439,9 +439,15 @@ fn handleRequest(req) {
             <li><a href='/list'>List</a></li>
             <li><a href='/math'>Math</a></li>
             <li><a href='/io'>File I/O</a></li>
+            <li><a href='/fs'>FileSystem (New)</a></li>
             <li><a href='/server'>Web Server</a></li>
+            <li><a href='/http'>HTTP Client</a></li>
             <li><a href='/arrays'>Arrays</a></li>
+            <li><a href='/regex'>Regex</a></li>
+            <li><a href='/date'>Date & Time</a></li>
             <li><a href='/json'>JSON</a></li>
+            <li><a href='/sql'>SQL (SQLite)</a></li>
+            <li><a href='/console'>Console (TUI)</a></li>
             <li><a href='/networking'>Networking</a></li>
             <li><a href='/fpm'>Packages (FPM)</a></li>
             <li><a href='/globals'>Globals</a></li>
@@ -996,7 +1002,183 @@ salute();</textarea>
     ", true);
   }
   
+  if (FSK.indexOf(req, "GET /sql ") != -1) {
+      return renderPage("SQL Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>SQL Module (SQLite3)</h1>
+            <p>Fsk includes a built-in SQLite3 engine for powerful local database management.</p>
+            
+            <h2>Opening a Database</h2>
+            <pre>
+let db = SQL.open('my_database.db');
+if (db == -1) {
+    print 'Failed to open database';
+} else {
+    print 'Database opened with ID: ' + db;
+}
+            </pre>
+
+            <h2>Executing Commands (No Return)</h2>
+            <p>Use <code>SQL.exec</code> for creating tables, inserting, updating, or deleting data.</p>
+            <pre>
+SQL.exec(db, 'CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)');
+SQL.exec(db, \"INSERT INTO users (name) VALUES ('Kiro')\");
+            </pre>
+
+            <h2>Querying Data</h2>
+            <p>Use <code>SQL.query</code> to retrieve rows. Returns an array of objects.</p>
+            <pre>
+let rows = SQL.query(db, 'SELECT * FROM users');
+print 'Found ' + rows.length + ' users.';
+
+for (let i = 0; i < rows.length; i = i + 1) {
+    print 'User: ' + rows[i].name;
+}
+            </pre>
+        </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /http ") != -1) {
+      return renderPage("HTTP Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>HTTP Module</h1>
+            <p>Perform HTTP requests easily.</p>
+            
+            <h2>GET Request</h2>
+            <pre>
+let res = HTTP.get('https://httpbin.org/get');
+if (res != nil) {
+    print 'Status: ' + res.status;
+    print 'Body: ' + res.body;
+}
+            </pre>
+
+            <h2>POST Request</h2>
+            <pre>
+let payload = '{\"key\":\"value\"}';
+let res = HTTP.post('https://httpbin.org/post', payload);
+print res.body;
+            </pre>
+        </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /regex ") != -1) {
+      return renderPage("Regex Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Regex Module</h1>
+            <p>Regular expression support for pattern matching and text manipulation.</p>
+            
+            <h2>Matching</h2>
+            <pre>
+if (Regex.match('^[0-9]+$', '12345')) {
+    print 'It is a number!';
+}
+            </pre>
+
+            <h2>Extraction</h2>
+            <p>Extract all occurrences of a pattern.</p>
+            <pre>
+let text = 'IDs: 12, 45, 99';
+let nums = Regex.extract('[0-9]+', text);
+// nums is ['12', '45', '99']
+            </pre>
+
+            <h2>Replacement</h2>
+            <pre>
+let text = 'Hello 123';
+let clean = Regex.replace(text, '[0-9]+', '###');
+print clean; // Hello ###
+            </pre>
+        </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /fs ") != -1) {
+      return renderPage("FileSystem Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>FileSystem (FS) Module</h1>
+            <p>Expanded file system capabilities.</p>
+            
+            <h2>Core Operations</h2>
+            <pre>
+// Check existence
+if (FS.exists('file.txt')) { ... }
+
+// Read/Write
+FS.write('file.txt', 'Hello World');
+let content = FS.read('file.txt');
+FS.append('file.txt', ' More text');
+
+// Management
+FS.delete('file.txt');
+FS.mkdir('logs');
+            </pre>
+
+            <h2>Listing Files</h2>
+            <pre>
+let files = FS.list('.');
+for (let i = 0; i < files.length; i = i + 1) {
+    print 'File: ' + files[i];
+}
+            </pre>
+        </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /date ") != -1) {
+      return renderPage("Date Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Date Module</h1>
+            <p>Time management functions.</p>
+            <pre>
+// Current Unix Timestamp
+let now = Date.now(); 
+
+// Formatting (strftime style)
+let pretty = Date.format(now, '%Y-%m-%d %H:%M:%S');
+print pretty; // e.g. 2023-10-25 14:30:00
+            </pre>
+        </main>
+      </div>", false);
+  }
+
+  if (FSK.indexOf(req, "GET /console ") != -1) {
+      return renderPage("Console Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Console Module</h1>
+            <p>Control the terminal output for TUI applications.</p>
+            <pre>
+Console.clear(); // Clear screen
+Console.moveTo(10, 5); // Move cursor to x=10, y=5
+
+Console.setColor('red');
+print 'Start Error';
+
+Console.setColor('green');
+print 'Success!';
+
+Console.setColor('reset');
+            </pre>
+        </main>
+      </div>", false);
+  }
+  
   return renderPage("404", "<h1>404</h1>", false);
+
 }
 
 FSK.startServer(8092, handleRequest);
