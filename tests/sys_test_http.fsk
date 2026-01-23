@@ -1,0 +1,17 @@
+print "--- Testing HTTP Framework ---";
+import "std/http.fsk";
+
+let app = App();
+
+app.get("/", fn(req, res) {
+    print "Handler for / called";
+    return res.send("Hello World");
+});
+
+app.get("/status", fn(req, res) {
+    return res.send("Status: OK");
+});
+
+print "Routes registered. Starting server on 8085...";
+
+app.listen(8085);

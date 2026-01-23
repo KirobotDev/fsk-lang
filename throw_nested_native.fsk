@@ -1,0 +1,18 @@
+fn throwingFunc() {
+    print "Triggering Native Error...";
+    let s = "string";
+    s.fail("Error"); // Should crash
+    print "After native error (Should not see)";
+}
+
+fn middleFunc() {
+    throwingFunc();
+    print "After throwingFunc (Should not see)";
+}
+
+try {
+    middleFunc(); 
+    print "After middleFunc (Should not see)";
+} catch (e) {
+    print "Caught Nested: " + e;
+}

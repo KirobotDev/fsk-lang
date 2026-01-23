@@ -1,0 +1,135 @@
+class Request {
+    fn init(raw) {
+        this.raw = raw;
+        this.method = "GET";
+        this.path = "/";
+        this.body = "";
+        
+        this.parse();
+    }
+
+    fn parse() {
+        let parts = Regex.extract("^(GET|POST|PUT|DELETE) ([^ ]+) HTTP", this.raw);
+        if (parts.length > 0) {
+           let firstLineEnd = FSK.indexOf(this.raw, "\r\n");
+           if (firstLineEnd == -1) {
+               firstLineEnd = FSK.indexOf(this.raw, "\n");
+           }
+           
+           if (firstLineEnd != -1) {
+               let line = FSK.substr(this.raw, 0, firstLineEnd);
+               
+               let sp1 = FSK.indexOf(line, " ");
+               let sp2 = -1;
+               if (sp1 != -1) {
+                   let tailLen = FSK.length(line) - sp1 - 1;
+                   let tail = FSK.substr(line, sp1 + 1, tailLen);
+                   let sp2Rel = FSK.indexOf(tail, " ");
+                   if (sp2Rel != -1) {
+                       sp2 = sp1 + 1 + sp2Rel;
+                   }
+               }
+               
+               if (sp1 != -1 and sp2 != -1) {
+                   this.method = FSK.substr(line, 0, sp1);
+                   this.path = FSK.substr(line, sp1 + 1, sp2 - sp1 - 1);
+
+               }
+           }
+        }
+        
+        let doubleNewline = FSK.indexOf(this.raw, "\r\n\r\n");
+        if (doubleNewline != -1) {
+            this.body = FSK.substr(this.raw, doubleNewline + 4, 100000);
+        } else {
+             doubleNewline = FSK.indexOf(this.raw, "\n\n");
+             if (doubleNewline != -1) {
+                 this.body = FSK.substr(this.raw, doubleNewline + 2, 100000);
+             }
+        }
+    }
+}
+
+class Response {
+    fn init() {
+        this.statusCode = 200;
+        this.headers = [];
+        this.body = "";
+    }
+
+    fn setStatus(code) {
+        this.statusCode = code;
+        return this;
+    }
+
+    fn send(text) {
+        this.body = text;
+        return this.body; 
+    }
+    
+    fn format() {
+        let h = "HTTP/1.1 " + this.statusCode + " OK\r\n";
+        h = h + "Content-Type: text/plain\r\n";
+        
+        return this.body;
+    }
+}
+
+class Router {
+    fn init() {
+        this.routes = []; 
+    }
+
+    fn get(path, cb) {
+        this.addRoute("GET", path, cb);
+    }
+
+    fn post(path, cb) {
+        this.addRoute("POST", path, cb);
+    }
+
+    fn addRoute(method, path, cb) {
+        let r = Route(method, path, cb);
+        this.routes.push(r);
+    }
+
+    fn handle(rawReq) {
+        let req = Request(rawReq);
+        let res = Response();
+        
+
+        let match = nil;
+        for (let i = 0; i < this.routes.length; i = i + 1) {
+            let r = this.routes[i];
+            if (r.method == req.method and r.path == req.path) {
+                match = r;
+            }
+        }
+
+        if (match != nil) {
+            return match.callback(req, res);
+        } else {
+            return "404 Not Found (Framework)";
+        }
+    }
+
+    fn listen(port) {
+        print "Server listening on " + port;
+        let self = this; 
+        FSK.startServer(port, fn(req) {
+            return self.handle(req);
+        });
+    }
+}
+
+class Route {
+    fn init(m, p, cb) {
+        this.method = m;
+        this.path = p;
+        this.callback = cb;
+    }
+}
+
+fn App() {
+    return Router();
+}

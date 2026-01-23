@@ -1,0 +1,29 @@
+fn throwingFunc() {
+    print "Throwing...";
+    throw "Nested Error";
+    print "After throw (Should not see)";
+}
+
+fn middleFunc() {
+    throwingFunc();
+    print "After throwingFunc (Should not see)";
+}
+
+try {
+    middleFunc(); 
+    print "After middleFunc (Should not see)";
+} catch (e) {
+    print "Caught Nested: " + e;
+}
+
+print "--- Testing Lambda ---";
+let lam = fn() {
+    throw "Lambda Error";
+};
+
+try {
+    lam();
+    print "After Lambda (Should not see)";
+} catch (e) {
+    print "Caught Lambda: " + e;
+}

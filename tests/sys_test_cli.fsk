@@ -1,0 +1,14 @@
+import "std/cli.fsk";
+
+print "--- Testing CLI Args ---";
+let args = CLI().args();
+print "Arg Count: " + args.length;
+for (let i = 0; i < args.length; i = i + 1) {
+    print "Arg[" + i + "]: " + args[i];
+}
+
+print "--- Testing Colors ---";
+let c = CLI();
+print c.color("RED TEXT", "red");
+print c.color("GREEN TEXT", "green");
+c.printColor("BLUE LINE", "blue");

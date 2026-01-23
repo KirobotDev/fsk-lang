@@ -1,0 +1,36 @@
+print "Testing std/structs.fsk...";
+import "std/structs.fsk";
+
+print "--- Testing Stack ---";
+let s = Stack();
+s.push(10);
+s.push(20);
+if (s.peek() == 20) print "Peek OK";
+if (s.pop() == 20) print "Pop OK";
+if (s.size() == 1) print "Size OK";
+if (s.isEmpty() == false) print "IsEmpty OK";
+s.pop();
+if (s.isEmpty() == true) print "Empty OK";
+
+print "--- Testing Queue ---";
+let q = Queue();
+q.enqueue("A");
+q.enqueue("B");
+if (q.peek() == "A") print "Peek OK";
+if (q.dequeue() == "A") print "Dequeue OK";
+if (q.size() == 1) print "Size OK";
+q.dequeue();
+if (q.isEmpty()) print "Empty OK";
+
+print "--- Testing Set ---";
+let s2 = Set();
+s2.add(1);
+s2.add(1); 
+s2.add(2);
+if (s2.size() == 2) print "Add Unique OK";
+if (s2.has(1)) print "Has OK";
+s2.remove(1);
+if (!s2.has(1)) print "Remove OK";
+if (s2.size() == 1) print "Size OK";
+
+print "DONE";

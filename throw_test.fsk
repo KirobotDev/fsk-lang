@@ -1,0 +1,11 @@
+try {
+    throw "Custom Error";
+} catch (e) {
+    print "Caught: " + e;
+}
+
+try {
+    1 / 0;
+} catch (e) {
+    print "Caught DivZero: " + e;
+}

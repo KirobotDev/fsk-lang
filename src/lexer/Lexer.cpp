@@ -67,15 +67,26 @@ char Lexer::peekNext() {
 }
 
 void Lexer::string(char quoteType) {
+  std::string value = "";
   while (peek() != quoteType && !isAtEnd()) {
     if (peek() == '\n')
       line++;
     
-    if (peek() == '\\') {
-       advance(); 
-       if (!isAtEnd()) advance(); 
+    char c = advance();
+    if (c == '\\') {
+       if (isAtEnd()) break; 
+       char next = advance();
+       switch(next) {
+           case 'n': value += '\n'; break;
+           case 'r': value += '\r'; break;
+           case 't': value += '\t'; break;
+           case '\\': value += '\\'; break;
+           case '"': value += '"'; break;
+           case '\'': value += '\''; break;
+           default: value += '\\'; value += next; break;
+       }
     } else {
-       advance();
+       value += c;
     }
   }
 
@@ -86,7 +97,6 @@ void Lexer::string(char quoteType) {
 
   advance(); 
 
-  std::string value = source.substr(start + 1, current - start - 2);
   addToken(TokenType::STRING, value);
 }
 

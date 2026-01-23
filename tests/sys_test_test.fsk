@@ -1,0 +1,20 @@
+print "Testing std/test.fsk framework...";
+import "std/test.fsk";
+
+test("Equality Check (Pass)", fn() {
+    assertEq(1, 1);
+});
+
+test("Equality Check (Fail - Expected)", fn() {
+    assertEq(1, 2);
+});
+
+test("Custom Assertion (Pass)", fn() {
+    assert(true, "True is true");
+});
+
+test("Custom Assertion (Fail - Expected)", fn() {
+    assert(false, "False is not true");
+});
+
+summary();

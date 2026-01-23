@@ -310,22 +310,22 @@ Interpreter::Interpreter() {
           std::vector<Value> handlerArgs;
           handlerArgs.push_back(Value(request));
           std::string responseBody = "";
-          std::cout << "DEBUG: Calling handler..." << std::endl;
+
           try {
              Value responseVal = handler->call(interp, handlerArgs);
-             std::cout << "DEBUG: Handler returned without throw." << std::endl;
+
              if (std::holds_alternative<std::string>(responseVal)) {
                 responseBody = std::get<std::string>(responseVal);
              }
           } catch (const Value &returnValue) {
-             std::cout << "DEBUG: Caught Value exception." << std::endl;
+
              if (std::holds_alternative<std::string>(returnValue)) {
                 responseBody = std::get<std::string>(returnValue);
              }
           } catch (const std::exception &e) {
-             std::cout << "DEBUG: Handler threw std::exception: " << e.what() << std::endl;
+
           } catch (...) {
-             std::cout << "DEBUG: Handler threw unknown exception." << std::endl;
+
           }
 
           std::string httpResponse = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: " + std::to_string(responseBody.length()) + "\n\n" + responseBody;
