@@ -423,55 +423,493 @@ fn renderPage(title, content, isHome) {
 }
 
 fn pageTutorial(sidebar) {
-    return renderPage("Tutorial", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Tutorial</h1><p>See <a href='/syntax'>Syntax</a>.</p></main></div>", false);
+    return renderPage("Tutorial", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>First Steps with Fsk</h1>
+              <p>Fsk is a modern, high-performance language designed for developers who demand speed and clarity. This tutorial will walk you through the core concepts in minute detail.</p>
+              
+              <h2>1. Hello World & Comments</h2>
+              <p>Every language starts with a Hello World. In Fsk, the <code>print</code> statement displays values to the console followed by a newline.</p>
+              <pre>
+print 'Hello Fsk!'; // This is a single-line comment
+/* This is a 
+   multi-line comment 
+   often used for documentation */
+              </pre>
+
+              <h2>2. Variables (let) & Constants (const)</h2>
+              <p>Fsk uses <code>let</code> for variables that can be reassigned and <code>const</code> for immutable values. Constants help the interpreter optimize your code.</p>
+              <pre>
+let score = 0;
+score = score + 10;
+print 'Score is: ' + score;
+
+const PI = 3.14159;
+// PI = 3; // Error! Constants cannot be reassigned.
+              </pre>
+
+              <h2>3. Fundamental Data Types</h2>
+              <p>Fsk supports dynamic typing with several built-in primitive types:</p>
+              <ul>
+                <li><b>Strings</b>: Use single quotes <code>'...'</code> or double quotes <code>&quot;...&quot;</code>.</li>
+                <li><b>Numbers</b>: Integers and double-precision floats.</li>
+                <li><b>Booleans</b>: Literal <code>true</code> and <code>false</code>.</li>
+                <li><b>Nil</b>: The <code>nil</code> keyword represents the absence of a value.</li>
+              </ul>
+              <pre>
+let name = 'Antigravity';
+let age = 777;
+let alive = true;
+let thing = nil;
+              </pre>
+
+              <h2>4. Basic Mathematics</h2>
+              <pre>
+let a = 10;
+let b = 5;
+print a + b; // Addition: 15
+print a - b; // Subtraction: 5
+print a * b; // Multiplication: 50
+print a / b; // Division: 2
+print a % 3; // Modulo (Remainder): 1
+              </pre>
+          </main>
+      </div>", false);
 }
 
 fn pageSyntax(sidebar) {
-    return renderPage("Syntax", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Syntax</h1><p>Check codebase for details.</p></main></div>", false);
+    return renderPage("Syntax", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Language Deep-Dive</h1>
+              
+              <h2>Control Flow (Conditional)</h2>
+              <p>Conditionals allow your program to make decisions based on boolean logic.</p>
+              <pre>
+let temperature = 25;
+
+if (temperature > 30) {
+    print 'It is very hot!';
+} else if (temperature < 10) {
+    print 'It is freezing!';
+} else {
+    print 'The weather is perfect.';
+}
+
+// Logical Operators
+if (temperature > 15 && temperature < 30) {
+    print 'Ideal for a walk.';
+}
+              </pre>
+
+              <h2>Loops & Iteration</h2>
+              <p>Fsk provides two primary ways to repeat code: <code>while</code> and <code>for</code> loops.</p>
+              
+              <h3>1. The While Loop</h3>
+              <pre>
+let i = 0;
+while (i < 5) {
+    print 'Count: ' + i;
+    i = i + 1;
+}
+              </pre>
+
+              <h3>2. The For Loop</h3>
+              <p>The <code>for</code> loop is perfect for iterating a specific number of times.</p>
+              <pre>
+for (let j = 0; j < 5; j = j + 1) {
+    print 'Counter: ' + j;
+}
+              </pre>
+
+              <h2>Functions (The Heart of Fsk)</h2>
+              <p>Functions are first-class citizens in Fsk. They can be defined as named functions or assigned to variables as lambdas.</p>
+              <pre>
+// Named function
+fn add(a, b) {
+    return a + b;
+}
+
+// Lambda function
+let multiply = fn(a, b) { return a * b; };
+
+print add(10, 5);      // 15
+print multiply(10, 5); // 50
+              </pre>
+
+              <h2>Object Oriented Programming (OOP)</h2>
+              <p>Fsk classes support constructors (via the <code>init</code> function) and single inheritance.</p>
+              <pre>
+class Animal {
+    fn init(name) {
+        this.name = name;
+    }
+    fn speak() {
+        print this.name + ' makes a sound.';
+    }
+}
+
+class Cat < Animal {
+    fn speak() {
+        print this.name + ' says MEOW!';
+    }
+}
+
+let myCat = Cat('Luna');
+myCat.speak(); // Luna says MEOW!
+              </pre>
+          </main>
+      </div>", false);
 }
 
 fn pageArrays(sidebar) {
-    return renderPage("Arrays", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Arrays</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Arrays & Strings", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Arrays & String Methods</h1>
+              
+              <h2>Native Arrays</h2>
+              <p>Arrays in Fsk are dynamic and can hold heterogeneous data types. They are zero-indexed.</p>
+              <pre>
+let colors = ['red', 'green', 'blue'];
+
+// Accessing elements
+print colors[0]; // red
+
+// Useful properties and methods
+print 'Count: ' + colors.length; // 3
+
+colors.push('yellow'); // Add to end
+print colors.length;   // 4
+
+let last = colors.pop(); // Remove from end
+print last; // yellow
+              </pre>
+
+              <h2>String Manipulation</h2>
+              <p>Strings are built-in and possess several powerful methods for manipulation.</p>
+              <pre>
+let text = '  Fsk Language  ';
+
+print text.length; // 16
+print text.trim(); // 'Fsk Language'
+
+// Substrings (start, length)
+print text.substr(2, 3); // 'Fsk'
+
+// Search
+print text.indexOf('Lang'); // 6
+              </pre>
+
+              <h2>Complex Iteration</h2>
+              <p>Iterating over an array using a for loop and the <code>length</code> property.</p>
+              <pre>
+let items = ['Apple', 'Banana', 'Cherry'];
+for (let i = 0; i < items.length; i = i + 1) {
+    print 'Item ' + i + ': ' + items[i];
+}
+              </pre>
+          </main>
+      </div>", false);
 }
 
 fn pageJSON(sidebar) {
-    return renderPage("JSON", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>JSON</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("JSON Engine", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>JSON Processing</h1>
+              <p>Fsk features a lightning-fast native JSON engine. It allows you to convert between Fsk data structures (Arrays/Values) and JSON strings effortlessly.</p>
+              
+              <h2>JSON.stringify</h2>
+              <p>Convert an Fsk value (usually an array or a complex structure) into a JSON string.</p>
+              <pre>
+let user = ['John Doe', 30, ['Developer', 'Gamer']];
+let jsonString = JSON.stringify(user);
+print jsonString; // [&quot;John Doe&quot;,30,[&quot;Developer&quot;,&quot;Gamer&quot;]]
+              </pre>
+
+              <h2>JSON.parse</h2>
+              <p>Parse a JSON string back into native Fsk types.</p>
+              <pre>
+let raw = '[&quot;Antigravity&quot;, true, 777]';
+let data = JSON.parse(raw);
+
+print 'Name: ' + data[0];
+if (data[1]) {
+    print 'Status: OK';
+}
+              </pre>
+
+              <h2>Real-world Example</h2>
+              <pre>
+let response = FSK.fetch('https://api.github.com/users/octocat');
+// Note: simplified as FSK fetch currently handles raw text.
+// Useful for parsing configuration or API responses.
+              </pre>
+          </main>
+      </div>", false);
 }
 
 fn pageNetworking(sidebar) {
-    return renderPage("Networking", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Networking</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Networking", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Networking & Web</h1>
+              
+              <h2>Client: FSK.fetch</h2>
+              <p>Download content from any HTTP URL. This is a blocking call that returns the source code of the page.</p>
+              <pre>
+let source = FSK.fetch('https://google.com');
+print 'Fetched ' + source.length + ' bytes.';
+writeFile('downloaded.html', source);
+              </pre>
+
+              <h2>Server: FSK.startServer</h2>
+              <p>Create a highly efficient web server. The second argument is a handler function that receives the raw request string and must return a valid HTTP response.</p>
+              <pre>
+fn myHandler(request) {
+    print 'Received request!';
+    if (FSK.indexOf(request, 'GET / ') != -1) {
+        return 'HTTP/1.1 200 OK&#92;nContent-Type: text/html&#92;n&#92;n<h1>Fsk Server</h1>';
+    }
+    return 'HTTP/1.1 404 Not Found&#92;n&#92;nPage not found.';
+}
+
+print 'Server starting on port 8080...';
+FSK.startServer(8080, myHandler);
+              </pre>
+          </main>
+      </div>", false);
 }
 
 fn pageCookbook(sidebar) {
-    return renderPage("Cookbook", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Cookbook</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Fsk Cookbook", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>The Fsk Cookbook</h1>
+            <p>A collection of useful code snippets for common tasks.</p>
+            
+            <h2>1. Persistent Logger Class</h2>
+            <pre>
+class Logger {
+    fn init(filename) {
+        this.filename = filename;
+    }
+    fn log(message) {
+        let current = '';
+        try {
+            current = readFile(this.filename);
+        } catch {
+            // File might not exist yet
+        }
+        writeFile(this.filename, current + '&#92;n[' + clock() + '] ' + message);
+    }
+}
+
+let appLog = Logger('app.log');
+appLog.log('Application started successfully.');
+            </pre>
+
+            <h2>2. Environment Config Loader</h2>
+            <pre>
+fn loadConfig(path) {
+    let raw = readFile(path);
+    return JSON.parse(raw);
+}
+
+let config = loadConfig('settings.json');
+print 'Connecting to: ' + config[0]; // Assuming host is first item
+            </pre>
+
+            <h2>3. Simple API Router</h2>
+            <pre>
+fn router(req) {
+    if (FSK.indexOf(req, 'GET /api/v1/users') != -1) return handleUsers();
+    if (FSK.indexOf(req, 'GET /api/v1/status') != -1) return 'HTTP/1.1 200 OK&#92;n&#92;nRUNNING';
+    return 'HTTP/1.1 404 Not Found&#92;n&#92;n';
+}
+            </pre>
+        </main>
+      </div>", false);
 }
 
 fn pageInstallation(sidebar) {
-    return renderPage("Installation", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Installation</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Installation", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Installation Guide</h1>
+              
+              <h2>1. Compile & Install Fsk</h2>
+              <p>To use Fsk on your server or local machine, first compile it from source.</p>
+              <pre>
+mkdir build && cd build
+cmake ..
+make
+sudo cp fsk /usr/local/bin/
+              </pre>
+
+              <h2>2. Setting up Standard Library</h2>
+              <p>Ensure the standard library is accessible at <code>/usr/local/lib/fsk/</code>.</p>
+              <pre>
+sudo mkdir -p /usr/local/lib/fsk/
+sudo cp -r ../std/* /usr/local/lib/fsk/
+              </pre>
+
+              <h2>3. Install IDE Extensions</h2>
+              <p>For syntax highlighting in your favorite editor, copy the extension folder to your IDE's extensions directory.</p>
+              
+              <h3>VS Code Standard</h3>
+              <pre>cp -r fsk-extension ~/.vscode/extensions/fsk-support</pre>
+
+              <h3>Antigravity / VS Code OSS</h3>
+              <pre>
+cp -r fsk-extension ~/.antigravity/extensions/fsk-support
+// OR
+cp -r fsk-extension ~/.vscode-oss-dev/extensions/fsk-support
+              </pre>
+
+              <p><b>Note:</b> After installation, use <code>F1</code> &gt; <code>Reload Window</code> to apply changes.</p>
+          </main>
+      </div>", false);
 }
 
 fn pageGlobals(sidebar) {
-    return renderPage("Globals", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Globals</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Globals", "
+      <div class='doc-container'>
+          " + sidebar + "
+          <main class='content'>
+              <h1>Global Functions & API</h1>
+              
+              <h2>FSK Namespace</h2>
+              <p>These functions are built-in and always available.</p>
+              <ul>
+                <li><code>FSK.version()</code>: Returns version string.</li>
+                <li><code>FSK.argCount()</code>: Returns number of CLI arguments.</li>
+                <li><code>FSK.fetch(url)</code>: GET request (Blocking).</li>
+                <li><code>FSK.shell(cmd)</code>: Execute system command (returns stdout).</li>
+                <li><code>FSK.indexOf(haystack, needle)</code>: Search string/array.</li>
+                <li><code>FSK.substr(str, start, count)</code>: Substring extraction.</li>
+              </ul>
+
+              <h2>System Utils</h2>
+              <ul>
+                <li><code>sleep(ms)</code>: Pause execution.</li>
+                <li><code>clock()</code>: Elapsed time in seconds.</li>
+                <li><code>readFile(path)</code>: Load file content.</li>
+                <li><code>writeFile(path, content)</code>: Save content to disk.</li>
+              </ul>
+
+              <pre>
+print 'Running on: ' + FSK.version();
+sleep(100); 
+print 'Up for ' + clock() + 's';
+              </pre>
+          </main>
+      </div>", false);
 }
 
 fn pageList(sidebar) {
-    return renderPage("List", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>List</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("List Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>List Module (std/list)</h1>
+            <p>The <code>list</code> module provides a linked-list implementation for efficient insertions and deletions.</p>
+            <pre>
+import 'std/list';
+
+let myList = List();
+myList.push(10);
+myList.push(20);
+myList.push(30);
+
+print 'Size: ' + myList.length;
+myList.forEach(fn(val) {
+    print 'Value: ' + val;
+});
+            </pre>
+        </main>
+      </div>", false);
 }
 
 fn pageMath(sidebar) {
-    return renderPage("Math", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Math</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Math Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Math Module</h1>
+            <p>Advanced mathematical functions.</p>
+            <pre>
+print Math.sqrt(64);  // 8
+print Math.pow(2, 10); // 1024
+print Math.abs(-50);   // 50
+print Math.random(); // Random float between 0 and 1
+            </pre>
+        </main>
+      </div>", false);
 }
 
 fn pageIO(sidebar) {
-    return renderPage("IO", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>IO</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("IO Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>IO & Execution</h1>
+            <p>Methods for interacting with the operating system.</p>
+            <pre>
+let c = readFile('script.fsk');
+writeFile('backup.fsk', c);
+
+// Execute a shell command and capture output
+let files = FSK.shell('ls -l');
+print files;
+            </pre>
+        </main>
+      </div>", false);
 }
 
 fn pageServer(sidebar) {
-    return renderPage("Server", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>Server</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("Server Module", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Server Implementation</h1>
+            <p>Full example of a document server (very similar to this one!).</p>
+            <pre>
+fn start() {
+    print 'Starting server...';
+    FSK.startServer(80, fn(req) {
+        return 'HTTP/1.1 200 OK&#92;n&#92;nWelcome to Fsk Server';
+    });
+}
+            </pre>
+        </main>
+      </div>", false);
 }
 
 fn pageFPM(sidebar) {
-    return renderPage("FPM", "<div class='doc-container'>" + sidebar + "<main class='content'><h1>FPM</h1><p>Content loaded.</p></main></div>", false);
+    return renderPage("FPM", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Fsk Package Manager (FPM)</h1>
+            <p>FPM is the official tool for managing Fsk projects and dependencies.</p>
+            <pre>
+// Terminal commands:
+fpm init         // Initialize a new project
+fpm install name // Install a package
+fpm run          // Execute entry point defined in fpm.json
+            </pre>
+        </main>
+      </div>", false);
 }
 
 fn pageHome() {
@@ -707,9 +1145,9 @@ fn handleRequest(req) {
 
 }
 
-print "Attempting to start on port 9091...";
+print "Attempting to start on port 8092...";
 try {
-    FSK.startServer(9091, handleRequest);
+    FSK.startServer(8092, handleRequest);
 } catch (e) {
     print "CRITICAL ERROR STARTING SERVER: " + e;
 }
