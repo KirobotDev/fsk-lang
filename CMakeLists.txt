@@ -17,6 +17,9 @@ set(SOURCES
 
 add_executable(fsk ${SOURCES})
 target_link_libraries(fsk sqlite3 ssl crypto curl)
+if(WIN32)
+    target_link_libraries(fsk ws2_32)
+endif()
 
 
 
