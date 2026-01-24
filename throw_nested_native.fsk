@@ -1,7 +1,7 @@
 fn throwingFunc() {
     print "Triggering Native Error...";
     let s = "string";
-    s.fail("Error"); // Should crash
+    s.fail("Error"); 
     print "After native error (Should not see)";
 }
 

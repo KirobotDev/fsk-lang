@@ -443,6 +443,29 @@ Interpreter::Interpreter() {
         return Value(result);
      });
 
+   fskInstance->fields["sin"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+         return Value(std::sin(std::get<double>(args[0])));
+      });
+   fskInstance->fields["cos"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+         return Value(std::cos(std::get<double>(args[0])));
+      });
+   fskInstance->fields["tan"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+         return Value(std::tan(std::get<double>(args[0])));
+      });
+   fskInstance->fields["sqrt"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+         return Value(std::sqrt(std::get<double>(args[0])));
+      });
+   fskInstance->fields["PI"] = Value(3.14159265358979323846);
+   fskInstance->fields["E"] = Value(2.71828182845904523536);
+
   globals->define("FSK", fskInstance);
 
 
@@ -744,6 +767,44 @@ Interpreter::Interpreter() {
            if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
                for (const auto & entry : std::filesystem::directory_iterator(path)) {
                    files.push_back(Value(entry.path().filename().string()));
+               }
+           }
+       } catch(...){}
+       return Value(std::make_shared<FSKArray>(files));
+  });
+
+  fsInstance->fields["copy"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+       try {
+           std::filesystem::copy(std::get<std::string>(args[0]), std::get<std::string>(args[1]), std::filesystem::copy_options::recursive);
+           return Value(true);
+       } catch(...) { return Value(false); }
+  });
+
+  fsInstance->fields["copy"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+       try {
+           std::filesystem::copy(std::get<std::string>(args[0]), std::get<std::string>(args[1]), std::filesystem::copy_options::recursive);
+           return Value(true);
+       } catch(...) { return Value(false); }
+  });
+
+  fsInstance->fields["move"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+       try {
+           std::filesystem::rename(std::get<std::string>(args[0]), std::get<std::string>(args[1]));
+           return Value(true);
+       } catch(...) { return Value(false); }
+  });
+
+  fsInstance->fields["walk"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0])) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
+       std::string path = std::get<std::string>(args[0]);
+       std::vector<Value> files;
+       try {
+           if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+               for (const auto & entry : std::filesystem::recursive_directory_iterator(path)) {
+                   files.push_back(Value(entry.path().string()));
                }
            }
        } catch(...){}
@@ -1273,6 +1334,62 @@ void Interpreter::visitGetExpr(Get &expr) {
               return Value(s.substr(start, len));
           });
       return;
+    }
+    if (expr.name.lexeme == "startsWith") {
+        lastValue = std::make_shared<NativeFunction>(
+          1, [s](Interpreter &interp, std::vector<Value> args) {
+             if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+             std::string prefix = std::get<std::string>(args[0]);
+             if (s.length() < prefix.length()) return Value(false);
+             return Value(s.substr(0, prefix.length()) == prefix);
+          });
+        return;
+    }
+    if (expr.name.lexeme == "endsWith") {
+        lastValue = std::make_shared<NativeFunction>(
+          1, [s](Interpreter &interp, std::vector<Value> args) {
+             if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+             std::string suffix = std::get<std::string>(args[0]);
+             if (s.length() < suffix.length()) return Value(false);
+             return Value(s.substr(s.length() - suffix.length()) == suffix);
+          });
+        return;
+    }
+    if (expr.name.lexeme == "toUpperCase") { 
+        lastValue = std::make_shared<NativeFunction>(
+          0, [s](Interpreter &interp, std::vector<Value> args) {
+             std::string res = s;
+             std::transform(res.begin(), res.end(), res.begin(), ::toupper);
+             return Value(res);
+          });
+        return;
+    }
+    if (expr.name.lexeme == "toLowerCase") {
+        lastValue = std::make_shared<NativeFunction>(
+          0, [s](Interpreter &interp, std::vector<Value> args) {
+             std::string res = s;
+             std::transform(res.begin(), res.end(), res.begin(), ::tolower);
+             return Value(res);
+          });
+        return;
+    }
+    if (expr.name.lexeme == "replace") {
+        lastValue = std::make_shared<NativeFunction>(
+          2, [s](Interpreter &interp, std::vector<Value> args) {
+             if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+                 return Value(s);
+             std::string target = std::get<std::string>(args[0]);
+             std::string replacement = std::get<std::string>(args[1]);
+             if (target.empty()) return Value(s);
+             std::string res = s;
+             size_t pos = 0;
+             while ((pos = res.find(target, pos)) != std::string::npos) {
+                 res.replace(pos, target.length(), replacement);
+                 pos += replacement.length();
+             }
+             return Value(res);
+          });
+        return;
     }
   }
 

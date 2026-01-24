@@ -9,16 +9,12 @@ class Request {
     }
 
     fn parse() {
-        let parts = Regex.extract("^(GET|POST|PUT|DELETE) ([^ ]+) HTTP", this.raw);
         if (parts.length > 0) {
            let firstLineEnd = FSK.indexOf(this.raw, "\r\n");
-           if (firstLineEnd == -1) {
-               firstLineEnd = FSK.indexOf(this.raw, "\n");
-           }
+           if (firstLineEnd == -1) firstLineEnd = FSK.indexOf(this.raw, "\n");
            
            if (firstLineEnd != -1) {
                let line = FSK.substr(this.raw, 0, firstLineEnd);
-               
                let sp1 = FSK.indexOf(line, " ");
                let sp2 = -1;
                if (sp1 != -1) {
@@ -32,8 +28,16 @@ class Request {
                
                if (sp1 != -1 and sp2 != -1) {
                    this.method = FSK.substr(line, 0, sp1);
-                   this.path = FSK.substr(line, sp1 + 1, sp2 - sp1 - 1);
-
+                   let fullPath = FSK.substr(line, sp1 + 1, sp2 - sp1 - 1);
+                   
+                   let qPos = FSK.indexOf(fullPath, "?");
+                   if (qPos != -1) {
+                       this.path = FSK.substr(fullPath, 0, qPos);
+                       this.queryStr = FSK.substr(fullPath, qPos + 1, FSK.length(fullPath) - qPos - 1);
+                   } else {
+                       this.path = fullPath;
+                       this.queryStr = "";
+                   }
                }
            }
         }
@@ -47,6 +51,13 @@ class Request {
                  this.body = FSK.substr(this.raw, doubleNewline + 2, 100000);
              }
         }
+        
+        if (FSK.length(this.body) > 0) {
+             let firstChar = FSK.substr(this.body, 0, 1);
+             if (firstChar == "{" or firstChar == "[") {
+                 this.json = JSON.parse(this.body);
+             }
+        } 
     }
 }
 

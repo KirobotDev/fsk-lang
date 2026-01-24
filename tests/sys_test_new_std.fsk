@@ -1,0 +1,38 @@
+import "std/test.fsk";
+import "std/string.fsk";
+import "std/fs.fsk";
+import "std/math.fsk";
+
+test("String Native Methods", fn() {
+    let s = "Hello World";
+    assert(s.startsWith("Hello"), "startsWith failed");
+    assert(s.endsWith("World"), "endsWith failed");
+    assertEq(s.toUpperCase(), "HELLO WORLD");
+    assertEq(s.toLowerCase(), "hello world");
+    assertEq(s.replace("World", "Fsk"), "Hello Fsk");
+});
+
+test("Math Native Methods", fn() {
+    assert(Math.PI > 3.14, "PI check");
+    assertEq(Math.sqrt(16), 4);
+    assert(Math.sin(0) == 0, "sin(0)");
+});
+
+test("FS Methods", fn() {
+    let testDir = "test_fs_dir";
+    FS.mkdir(testDir);
+    FS.write(testDir + "/test.txt", "Hello\nWorld");
+    
+    let lines = FS.readLines(testDir + "/test.txt");
+    assertEq(lines.length, 2);
+    assertEq(lines[0], "Hello");
+    
+    FS.copy(testDir + "/test.txt", testDir + "/copy.txt");
+    assert(FS.exists(testDir + "/copy.txt"), "Copy failed");
+    
+    FS.delete(testDir + "/test.txt");
+    FS.delete(testDir + "/copy.txt");
+    FS.delete(testDir);
+});
+
+summary();
