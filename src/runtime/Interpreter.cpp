@@ -339,7 +339,12 @@ Interpreter::Interpreter() {
 
           }
 
-          std::string httpResponse = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: " + std::to_string(responseBody.length()) + "\n\n" + responseBody;
+          std::string httpResponse;
+          if (responseBody.substr(0, 8) == "HTTP/1.1" || responseBody.substr(0, 8) == "HTTP/1.0") {
+              httpResponse = responseBody;
+          } else {
+              httpResponse = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: " + std::to_string(responseBody.length()) + "\n\n" + responseBody;
+          }
           
           send(new_socket, httpResponse.c_str(), httpResponse.length(), 0);
           close(new_socket);
