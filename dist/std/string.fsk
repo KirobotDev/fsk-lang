@@ -1,0 +1,11 @@
+class Strings {
+    fn split(s, delim) { return s.split(delim); }
+    fn trim(s) { return s.trim(); }
+    fn startsWith(s, prefix) { return s.startsWith(prefix); }
+    fn endsWith(s, suffix) { return s.endsWith(suffix); }
+    fn toUpperCase(s) { return s.toUpperCase(); }
+    fn toLowerCase(s) { return s.toLowerCase(); }
+    fn replace(s, target, replacement) { return s.replace(target, replacement); }
+}
+
+let Strings = Strings();

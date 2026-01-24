@@ -25,7 +25,7 @@ void run(std::string source) {
   Interpreter interpreter;
   interpreter.interpret(statements);
 }
-error_t runfile(const char *path) {
+int runfile(const char *path) {
   std::ifstream file(path);
   if (!file.is_open()) {
     std::cerr << "Could not open file: " << path << std::endl;

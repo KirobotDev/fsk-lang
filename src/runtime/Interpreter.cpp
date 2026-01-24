@@ -10,13 +10,21 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#define popen _popen
+#define pclose _pclose
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#endif
 #include <sstream> 
 #include <sqlite3.h>
 #include "easywsclient.hpp"
-#include <unistd.h>
-#include <sys/ioctl.h>
 #include <cstring>
 #include <vector>
 #include <array>
@@ -204,7 +212,7 @@ Interpreter::Interpreter() {
       1, [](Interpreter &interp, std::vector<Value> args) {
         if (std::holds_alternative<double>(args[0])) {
             int ms = (int)std::get<double>(args[0]);
-            usleep(ms * 1000);
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
         }
         return Value(0.0);
       }));
@@ -226,6 +234,9 @@ Interpreter::Interpreter() {
 
   fskInstance->fields["startServer"] = std::make_shared<NativeFunction>(
       2, [](Interpreter &interp, std::vector<Value> args) {
+#ifdef _WIN32
+        throw std::runtime_error("startServer n'est pas encore supporté sur Windows.");
+#else
         if (!std::holds_alternative<double>(args[0])) {
           throw std::runtime_error("startServer attend un port (nombre).");
         }
@@ -245,7 +256,7 @@ Interpreter::Interpreter() {
           throw std::runtime_error("Socket failed");
         }
 
-        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
+        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt,
                        sizeof(opt))) {
           throw std::runtime_error("Setsockopt failed");
         }
@@ -278,7 +289,7 @@ Interpreter::Interpreter() {
           char buffer[4096];
           
           while (request.find("\r\n\r\n") == std::string::npos) {
-             int valread = read(new_socket, buffer, sizeof(buffer));
+             int valread = recv(new_socket, buffer, sizeof(buffer), 0);
              if (valread <= 0) break;
              request.append(buffer, valread);
           }
@@ -300,7 +311,7 @@ Interpreter::Interpreter() {
               size_t current_body_len = request.length() - body_start;
               
               while (current_body_len < content_length) {
-                  int valread = read(new_socket, buffer, sizeof(buffer));
+                  int valread = recv(new_socket, buffer, sizeof(buffer), 0);
                   if (valread <= 0) break;
                   request.append(buffer, valread);
                   current_body_len += valread;
@@ -333,6 +344,7 @@ Interpreter::Interpreter() {
           send(new_socket, httpResponse.c_str(), httpResponse.length(), 0);
           close(new_socket);
         }
+#endif
         return Value(true);
       });
 

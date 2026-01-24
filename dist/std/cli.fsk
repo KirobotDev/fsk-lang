@@ -1,0 +1,29 @@
+class CLI {
+    fn init() {}
+
+    fn args() {
+        let list = [];
+        let count = FSK.argCount();
+        for (let i = 0; i < count; i = i + 1) {
+            list.push(FSK.arg(i));
+        }
+        return list;
+    }
+
+    fn color(text, colorName) {
+        let code = "\u001b[0m"; 
+        if (colorName == "red") code = "\u001b[31m";
+        else if (colorName == "green") code = "\u001b[32m";
+        else if (colorName == "blue") code = "\u001b[34m";
+        else if (colorName == "yellow") code = "\u001b[33m";
+        else if (colorName == "magenta") code = "\u001b[35m";
+        else if (colorName == "cyan") code = "\u001b[36m";
+        else if (colorName == "white") code = "\u001b[37m";
+        
+        return code + text + "\u001b[0m";
+    }
+
+    fn printColor(text, colorName) {
+        print this.color(text, colorName);
+    }
+}

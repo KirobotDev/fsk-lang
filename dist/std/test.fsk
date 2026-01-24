@@ -1,0 +1,73 @@
+class TestRunner {
+    fn init() {
+        this.testsRun = 0;
+        this.testsPassed = 0;
+        this.testsFailed = 0;
+        this.lastError = nil;
+    }
+
+    fn test(name, callback) {
+        this.testsRun = this.testsRun + 1;
+        print "[TEST] " + name + "...";
+        try {
+            this.lastError = nil;
+            callback();
+            this.testsPassed = this.testsPassed + 1;
+            print "\u001b[32mPASS\u001b[0m"; 
+        } catch (e) {
+            this.testsFailed = this.testsFailed + 1;
+            if (this.lastError != nil) {
+                print "\u001b[31mFAIL: " + this.lastError + "\u001b[0m";
+            } else {
+                print "\u001b[31mFAIL: " + e + "\u001b[0m";
+            }
+            this.lastError = nil;
+        }
+    }
+
+    fn assert(condition, msg) {
+        if (!condition) {
+            if (msg == nil) msg = "Assertion failed";
+            this.lastError = msg;
+            let crash = "CRASH";
+            crash.fail(msg); 
+        }
+    }
+    
+    fn assertEq(a, b) {
+        if (a != b) {
+             let msg = "Expected " + a + " but got " + b;
+             this.assert(false, msg);
+        }
+    }
+
+    fn summary() {
+        print "------------------------------------------------";
+        print "Tests Run: " + this.testsRun;
+        print "Passed: " + this.testsPassed;
+        print "Failed: " + this.testsFailed;
+        if (this.testsFailed == 0) {
+            print "\u001b[32mALL TESTS PASSED\u001b[0m";
+        } else {
+            print "\u001b[31mSOME TESTS FAILED\u001b[0m";
+        }
+    }
+}
+
+let _Runner = TestRunner();
+
+fn test(name, cb) {
+    _Runner.test(name, cb);
+}
+
+fn assert(cond, msg) {
+    _Runner.assert(cond, msg);
+}
+
+fn assertEq(a, b) {
+    _Runner.assertEq(a, b);
+}
+
+fn summary() {
+    _Runner.summary();
+}

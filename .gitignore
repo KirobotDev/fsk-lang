@@ -9,3 +9,4 @@ fsk_modules/
 *.db
 registry.pid
 test.db 
+build_windows/

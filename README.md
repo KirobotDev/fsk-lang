@@ -33,6 +33,15 @@ cmake ..
 make
 ```
 
+### Windows Build
+For detailed instructions on building Fsk on Windows, please see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md).
+
+#### Building for Windows on Linux (Cross-Compilation)
+If you are on Linux and want to generate a `.exe` for Windows users:
+1. Ensure you have `mingw-w64` and `vcpkg` installed.
+2. Run `./build_windows.sh`.
+3. The resulting `fsk.exe` and a distribution `fsk_windows.zip` will be generated.
+
 ## Global Installation (System-wide)
 
 After building, you can install Fsk and FPM system-wide to run `fsk` and `fpm` from any directory.
@@ -49,19 +58,18 @@ echo 'fsk /usr/local/lib/fsk/fpm/fpm.fsk "$@"' | sudo tee -a /usr/local/bin/fpm
 sudo chmod +x /usr/local/bin/fpm
 ```
 
-### Windows Installation (PowerShell)
-Run as Administrator:
-```powershell
-New-Item -ItemType Directory -Force -Path "C:\Fsk"
+### Windows Installation (One-Click Installer)
+The easiest way to install Fsk on Windows is to build the installer:
+1. Ensure you have [Inno Setup](https://jrsoftware.org/isinfo.php) installed.
+2. Run `package.bat` as Administrator.
+3. Once finished, run `fsk_setup.exe` from the `Output` folder.
 
-Copy-Item -Recurse -Force "std" "C:\Fsk\"
+This will automatically:
+- Install Fsk and its standard library.
+- Add Fsk to your system `PATH`.
+- Associate `.fsk` files with the interpreter (double-click to run!).
 
-[System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Fsk", "User")
-
-Copy-Item -Recurse -Force "fpm" "C:\Fsk\"
-Set-Content -Path "C:\Fsk\fpm.bat" -Value '@fsk C:\Fsk\fpm\fpm.fsk %*'
-```
-> Note: You will need to manually compile or download `fsk.exe` and place it in `C:\Fsk\`.
+### Manual Windows Installation (PowerShell)
 
 ## Pterodactyl Installation (Hosting)
 

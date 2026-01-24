@@ -15,10 +15,25 @@ set(SOURCES
     src/modules/easywsclient.cpp
 )
 
+find_package(SQLite3 REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
+
 add_executable(fsk ${SOURCES})
-target_link_libraries(fsk sqlite3 ssl crypto curl)
+
+if(TARGET SQLite3::SQLite3)
+    target_link_libraries(fsk PRIVATE SQLite3::SQLite3)
+else()
+    target_link_libraries(fsk PRIVATE ${SQLite3_LIBRARIES})
+    target_include_directories(fsk PRIVATE ${SQLite3_INCLUDE_DIRS})
+endif()
+
+target_link_libraries(fsk PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+
+target_link_libraries(fsk PRIVATE CURL::libcurl)
+
 if(WIN32)
-    target_link_libraries(fsk ws2_32)
+    target_link_libraries(fsk PRIVATE ws2_32)
 endif()
 
 
