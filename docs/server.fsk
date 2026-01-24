@@ -756,7 +756,26 @@ make
 sudo cp fsk /usr/local/bin/
               </pre>
 
-              <h2>2. Setting up Standard Library</h2>
+              <h2>2. Core Dependencies</h2>
+              <p>Fsk requires the following runtime libraries to be installed on your system (Linux & Windows):</p>
+              <ul>
+                <li><code>libstdc++</code></li>
+                <li><code>libgcc</code></li>
+                <li><code>libsqlite3</code></li>
+                <li><code>libssl</code></li>
+                <li><code>libcurl</code></li>
+              </ul>
+              <p>On Linux, these are typically provided by <code>build-essential</code> or <code>gcc</code>. On Windows, they are included with <code>MinGW-w64</code>.</p>
+
+              <h2>3. Windows Installation</h2>
+              <p>For Windows users, we recommend using the automated installer or manual setup.</p>
+              <h3>One-Click Installer</h3>
+              <p>Download the latest <code>fsk_setup.exe</code> from GitHub and run it as Administrator. This will handle the PATH and file associations automatically.</p>
+              
+              <h3>Manual Setup & Dependencies</h3>
+              <p>If you run Fsk manually on Windows, you <b>must</b> ensure that the MinGW-w64 runtime libraries (<code>libstdc++</code> and <code>libgcc</code>) are installed and present in your system PATH. Without these, the interpreter will fail to start due to missing DLLs.</p>
+
+              <h2>3. Setting up Standard Library</h2>
               <p>Ensure the standard library is accessible at <code>/usr/local/lib/fsk/</code>.</p>
               <pre>
 sudo mkdir -p /usr/local/lib/fsk/

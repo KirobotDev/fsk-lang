@@ -19,7 +19,10 @@ A custom interpreted programming language written in C++.
 Requirements:
 - CMake 3.10+
 - C++ Compiler (C++17 recommended)
-- Dependencies: `libsqlite3-dev`, `libssl-dev`, `libcurl4-openssl-dev`
+- Dependencies: `libsqlite3-dev`, `libssl-dev`, `libcurl4-openssl-dev`, `libstdc++`, `libgcc`
+
+> [!NOTE]
+> **Core Runtime Libraries**: Fsk requires `libstdc++` and `libgcc` to be present on the system (both Linux and Windows). These are usually installed by default with `g++` or `build-essential` on Linux and `MinGW-w64` on Windows.
 
 To install dependencies on Debian/Ubuntu:
 ```bash
@@ -68,6 +71,9 @@ This will automatically:
 - Install Fsk and its standard library.
 - Add Fsk to your system `PATH`.
 - Associate `.fsk` files with the interpreter (double-click to run!).
+
+> [!IMPORTANT]
+> **Windows Dependencies**: If you are installing manually or using a portable version, ensure you have `libstdc++` and `libgcc` installed (usually provided by MinGW-w64). If you see missing DLL errors, you need to add these libraries to your system.
 
 ### Manual Windows Installation (PowerShell)
 
