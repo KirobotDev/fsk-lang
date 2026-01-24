@@ -83,7 +83,7 @@ std::shared_ptr<Stmt> Parser::function(std::string kind, bool isAsync) {
 }
 
 std::shared_ptr<Stmt> Parser::varDeclaration() {
-  Token name = consume(TokenType::IDENTIFIER, "Expect variable name.");
+  std::shared_ptr<Expr> pat = pattern();
 
   std::string typeHint = "";
   if (match({TokenType::COLON})) {
@@ -95,15 +95,58 @@ std::shared_ptr<Stmt> Parser::varDeclaration() {
     initializer = expression();
   }
   match({TokenType::SEMICOLON});
-  return std::make_shared<Let>(name, initializer, typeHint);
+  return std::make_shared<Let>(pat, initializer, typeHint);
 }
 
 std::shared_ptr<Stmt> Parser::constDeclaration() {
-  Token name = consume(TokenType::IDENTIFIER, "Expect constant name.");
+  std::shared_ptr<Expr> pat = pattern();
   consume(TokenType::EQUAL, "Expect '=' after constant name.");
   std::shared_ptr<Expr> initializer = expression();
   match({TokenType::SEMICOLON});
-  return std::make_shared<Const>(name, initializer);
+  return std::make_shared<Const>(pat, initializer);
+}
+
+std::shared_ptr<Expr> Parser::pattern() {
+  if (match({TokenType::IDENTIFIER})) {
+    return std::make_shared<Variable>(previous());
+  }
+
+  if (match({TokenType::NUMBER, TokenType::STRING, TokenType::TRUE, TokenType::FALSE, TokenType::NIL})) {
+    return std::make_shared<Literal>(previous().literal);
+  }
+
+  if (match({TokenType::LEFT_BRACKET})) {
+    std::vector<std::shared_ptr<Expr>> elements;
+    if (!check(TokenType::RIGHT_BRACKET)) {
+      do {
+        elements.push_back(pattern());
+      } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after array pattern.");
+    return std::make_shared<Array>(elements);
+  }
+
+  
+  throw std::runtime_error("Expect pattern.");
+}
+
+std::shared_ptr<Stmt> Parser::matchStatement() {
+  consume(TokenType::LEFT_PAREN, "Expect '(' after 'match'.");
+  std::shared_ptr<Expr> expr = expression();
+  consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+
+  consume(TokenType::LEFT_BRACE, "Expect '{' before match body.");
+
+  std::vector<std::pair<std::shared_ptr<Expr>, std::shared_ptr<Stmt>>> arms;
+  while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
+    std::shared_ptr<Expr> pat = pattern();
+    consume(TokenType::ARROW, "Expect '->' after pattern.");
+    std::shared_ptr<Stmt> body = statement();
+    arms.push_back({pat, body});
+  }
+
+  consume(TokenType::RIGHT_BRACE, "Expect '}' after match body.");
+  return std::make_shared<Match>(expr, arms);
 }
 
 std::shared_ptr<Stmt> Parser::importStatement() {
@@ -118,6 +161,8 @@ std::shared_ptr<Stmt> Parser::statement() {
     return forStatement();
   if (match({TokenType::IF}))
     return ifStatement();
+  if (match({TokenType::MATCH}))
+    return matchStatement();
   if (match({TokenType::PRINT}))
     return printStatement();
   if (match({TokenType::RETURN}))
@@ -370,6 +415,33 @@ std::shared_ptr<Expr> Parser::primary() {
 
   if (match({TokenType::NUMBER, TokenType::STRING})) {
     return std::make_shared<Literal>(previous().literal);
+  }
+
+  if (match({TokenType::BACKTICK})) {
+    std::vector<std::string> strings;
+    std::vector<std::shared_ptr<Expr>> expressions;
+
+    if (check(TokenType::STRING)) {
+      advance();
+      strings.push_back(std::get<std::string>(previous().literal));
+    } else {
+      strings.push_back("");
+    }
+
+    while (match({TokenType::DOLLAR_BRACE})) {
+      expressions.push_back(expression());
+      consume(TokenType::RIGHT_BRACE, "Expect '}' after interpolation.");
+
+      if (check(TokenType::STRING)) {
+        advance();
+        strings.push_back(std::get<std::string>(previous().literal));
+      } else {
+        strings.push_back("");
+      }
+    }
+
+    consume(TokenType::BACKTICK, "Expect '`' after template literal.");
+    return std::make_shared<TemplateLiteral>(strings, expressions);
   }
 
   if (match({TokenType::SUPER})) {

@@ -27,7 +27,8 @@ public:
   }
 
   void visitLetStmt(Let &stmt) override {
-    std::cout << "(let " << stmt.name.lexeme;
+    std::cout << "(let ";
+    stmt.pattern->accept(*this);
     if (stmt.initializer) {
       std::cout << " = ";
       stmt.initializer->accept(*this);
@@ -36,7 +37,9 @@ public:
   }
 
   void visitConstStmt(Const &stmt) override {
-    std::cout << "(const " << stmt.name.lexeme << " = ";
+    std::cout << "(const ";
+    stmt.pattern->accept(*this);
+    std::cout << " = ";
     stmt.initializer->accept(*this);
     std::cout << ")" << std::endl;
   }
@@ -101,6 +104,22 @@ public:
     std::cout << "(throw ";
     stmt.value->accept(*this);
     std::cout << ")" << std::endl;
+  }
+
+  void visitMatchStmt(Match &stmt) override {
+    std::cout << "(match ";
+    stmt.expression->accept(*this);
+    std::cout << " arms)" << std::endl;
+  }
+
+  void visitImportStmt(Import &stmt) override {
+    std::cout << "(import ";
+    stmt.file->accept(*this);
+    std::cout << ")" << std::endl;
+  }
+
+  void visitForStmt(For &stmt) override {
+    std::cout << "(for)" << std::endl;
   }
 
   void visitBinaryExpr(Binary &expr) override {
@@ -193,5 +212,33 @@ public:
       std::cout << param.lexeme << " ";
     }
     std::cout << " block)";
+  }
+
+  void visitTemplateLiteralExpr(TemplateLiteral &expr) override {
+    std::cout << "(template-literal)";
+  }
+
+  void visitArrayExpr(Array &expr) override {
+    std::cout << "[";
+    for (size_t i = 0; i < expr.elements.size(); i++) {
+        expr.elements[i]->accept(*this);
+        if (i < expr.elements.size() - 1) std::cout << ", ";
+    }
+    std::cout << "]";
+  }
+
+  void visitIndexExpr(IndexExpr &expr) override {
+    expr.callee->accept(*this);
+    std::cout << "[";
+    expr.index->accept(*this);
+    std::cout << "]";
+  }
+
+  void visitIndexSetExpr(IndexSet &expr) override {
+    expr.callee->accept(*this);
+    std::cout << "[";
+    expr.index->accept(*this);
+    std::cout << "] = ";
+    expr.value->accept(*this);
   }
 };

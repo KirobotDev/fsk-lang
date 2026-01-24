@@ -28,6 +28,7 @@ struct Await;
 struct Array;
 struct IndexExpr;
 struct IndexSet;
+struct TemplateLiteral;
 
 struct ExprVisitor {
   virtual void visitBinaryExpr(Binary &expr) = 0;
@@ -47,6 +48,7 @@ struct ExprVisitor {
   virtual void visitIndexExpr(IndexExpr &expr) = 0;
   virtual void visitIndexSetExpr(IndexSet &expr) = 0;
   virtual void visitFunctionExpr(FunctionExpr &expr) = 0;
+  virtual void visitTemplateLiteralExpr(TemplateLiteral &expr) = 0;
 };
 
 struct Binary : Expr {
@@ -183,4 +185,15 @@ struct FunctionExpr : Expr {
   FunctionExpr(std::vector<Token> params, std::vector<std::shared_ptr<Stmt>> body)
       : params(params), body(body) {}
   void accept(ExprVisitor &visitor) override { visitor.visitFunctionExpr(*this); }
+};
+
+struct TemplateLiteral : Expr {
+  std::vector<std::string> strings;
+  std::vector<std::shared_ptr<Expr>> expressions;
+  TemplateLiteral(std::vector<std::string> strings,
+                  std::vector<std::shared_ptr<Expr>> expressions)
+      : strings(strings), expressions(expressions) {}
+  void accept(ExprVisitor &visitor) override {
+    visitor.visitTemplateLiteralExpr(*this);
+  }
 };

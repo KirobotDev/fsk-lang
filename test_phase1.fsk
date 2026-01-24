@@ -1,0 +1,31 @@
+let name = "World";
+let greeting = `Hello ${name}!`;
+print greeting; 
+
+let age = 25;
+print `I am ${age} years old.`; 
+
+let [a, b] = [10, 20];
+print a; 
+print b;
+
+let [x, [y, z]] = [1, [2, 3]];
+print x; 
+print y; 
+print z; 
+
+fn testMatch(val) {
+    match (val) {
+        1 -> print "It is one";
+        "hello" -> print "It is hello";
+        [1, 2] -> print "It is array [1, 2]";
+        x -> print "It is something else: " + x;
+    }
+}
+
+testMatch(1);       
+testMatch("hello"); 
+testMatch([1, 2]);  
+testMatch(42);      
+
+print "Phase 1 tests passed!";

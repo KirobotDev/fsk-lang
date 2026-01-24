@@ -25,6 +25,7 @@ struct Try;
 struct Throw;
 struct For;
 struct Import;
+struct Match;
 
 struct StmtVisitor {
   virtual void visitExpressionStmt(Expression &stmt) = 0;
@@ -41,6 +42,7 @@ struct StmtVisitor {
   virtual void visitTryStmt(Try &stmt) = 0;
   virtual void visitThrowStmt(Throw &stmt) = 0;
   virtual void visitImportStmt(Import &stmt) = 0;
+  virtual void visitMatchStmt(Match &stmt) = 0;
 };
 
 struct Expression : Stmt {
@@ -58,20 +60,20 @@ struct Print : Stmt {
 };
 
 struct Let : Stmt {
-  Token name;
+  std::shared_ptr<Expr> pattern;
   std::shared_ptr<Expr> initializer;
   std::string typeHint; 
 
-  Let(Token name, std::shared_ptr<Expr> initializer, std::string typeHint = "")
-      : name(name), initializer(initializer), typeHint(typeHint) {}
+  Let(std::shared_ptr<Expr> pattern, std::shared_ptr<Expr> initializer, std::string typeHint = "")
+      : pattern(pattern), initializer(initializer), typeHint(typeHint) {}
   void accept(StmtVisitor &visitor) override { visitor.visitLetStmt(*this); }
 };
 
 struct Const : Stmt {
-  Token name;
+  std::shared_ptr<Expr> pattern;
   std::shared_ptr<Expr> initializer;
-  Const(Token name, std::shared_ptr<Expr> initializer)
-      : name(name), initializer(initializer) {}
+  Const(std::shared_ptr<Expr> pattern, std::shared_ptr<Expr> initializer)
+      : pattern(pattern), initializer(initializer) {}
   void accept(StmtVisitor &visitor) override { visitor.visitConstStmt(*this); }
 };
 
@@ -175,4 +177,14 @@ struct Import : Stmt {
   Import(Token keyword, std::shared_ptr<Expr> file)
       : keyword(keyword), file(file) {}
   void accept(StmtVisitor &visitor) override { visitor.visitImportStmt(*this); }
+};
+
+struct Match : Stmt {
+  std::shared_ptr<Expr> expression;
+  std::vector<std::pair<std::shared_ptr<Expr>, std::shared_ptr<Stmt>>> arms;
+
+  Match(std::shared_ptr<Expr> expression,
+        std::vector<std::pair<std::shared_ptr<Expr>, std::shared_ptr<Stmt>>> arms)
+      : expression(expression), arms(arms) {}
+  void accept(StmtVisitor &visitor) override { visitor.visitMatchStmt(*this); }
 };

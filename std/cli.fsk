@@ -11,7 +11,7 @@ class CLI {
     }
 
     fn color(text, colorName) {
-        let code = "\u001b[0m"; 
+        let code = "\u001b[0m";  
         if (colorName == "red") code = "\u001b[31m";
         else if (colorName == "green") code = "\u001b[32m";
         else if (colorName == "blue") code = "\u001b[34m";

@@ -27,6 +27,7 @@ public:
   void visitTryStmt(Try &stmt) override;
   void visitThrowStmt(Throw &stmt) override;
   void visitImportStmt(Import &stmt) override;
+  void visitMatchStmt(Match &stmt) override;
 
   void visitBinaryExpr(Binary &expr) override;
   void visitGroupingExpr(Grouping &expr) override;
@@ -45,9 +46,13 @@ public:
   void visitIndexExpr(IndexExpr &expr) override;
   void visitIndexSetExpr(IndexSet &expr) override;
   void visitFunctionExpr(FunctionExpr &expr) override;
+  void visitTemplateLiteralExpr(TemplateLiteral &expr) override;
 
   void executeBlock(const std::vector<std::shared_ptr<Stmt>> &statements,
                     std::shared_ptr<Environment> environment);
+
+  void bindPattern(std::shared_ptr<Expr> pattern, Value value, bool isConst = false);
+  bool matchPattern(std::shared_ptr<Expr> pat, Value value);
 
   static std::string stringify(Value value);
   std::string jsonStringify(Value value);

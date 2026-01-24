@@ -25,11 +25,16 @@ private:
   char peekNext();
   void string(char quoteType);
   void number();
+  void scanner();
   void identifier();
   void scanToken();
+  void scanTokenInternal();
   bool isDigit(char c);
   bool isAlpha(char c);
   bool isAlphaNumeric(char c);
+
+  std::vector<int> templateBraceStack;
+  bool isInTemplate = false;
 
   static const std::map<std::string, TokenType> keywords;
 };

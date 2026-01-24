@@ -60,6 +60,9 @@ enum class TokenType {
   TRY,
   CATCH,
   THROW,
+  MATCH,
+  BACKTICK,
+  DOLLAR_BRACE,
 
   EOF_TOKEN
 };

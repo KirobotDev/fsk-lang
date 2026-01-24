@@ -23,6 +23,7 @@ private:
   std::shared_ptr<Stmt> statement();
   std::shared_ptr<Stmt> forStatement();
   std::shared_ptr<Stmt> ifStatement();
+  std::shared_ptr<Stmt> matchStatement();
   std::shared_ptr<Stmt> printStatement();
   std::shared_ptr<Stmt> returnStatement();
   std::shared_ptr<Stmt> whileStatement();
@@ -32,6 +33,7 @@ private:
   std::shared_ptr<Stmt> expressionStatement();
 
   std::shared_ptr<Expr> expression();
+  std::shared_ptr<Expr> pattern();
   std::shared_ptr<Expr> assignment();
   std::shared_ptr<Expr> or_expr();
   std::shared_ptr<Expr> and_expr();

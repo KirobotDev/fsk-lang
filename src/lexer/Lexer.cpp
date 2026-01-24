@@ -30,7 +30,8 @@ const std::map<std::string, TokenType> Lexer::keywords = {
     {"while", TokenType::WHILE},
     {"try", TokenType::TRY},
     {"catch", TokenType::CATCH},
-    {"throw", TokenType::THROW}};
+    {"throw", TokenType::THROW},
+    {"match", TokenType::MATCH}};
 
 Lexer::Lexer(std::string source) : source(source) {}
 
@@ -134,6 +135,71 @@ void Lexer::identifier() {
 }
 
 void Lexer::scanToken() {
+  if (isInTemplate && templateBraceStack.empty()) {
+    if (peek() == '`') {
+      scanTokenInternal();
+      return;
+    }
+    std::string value = "";
+    while (peek() != '`' && !(peek() == '$' && peekNext() == '{') &&
+           !isAtEnd()) {
+      if (peek() == '\n')
+        line++;
+      char c = advance();
+      if (c == '\\') {
+        if (isAtEnd())
+          break;
+        char next = advance();
+        switch (next) {
+        case 'n':
+          value += '\n';
+          break;
+        case 'r':
+          value += '\r';
+          break;
+        case 't':
+          value += '\t';
+          break;
+        case '\\':
+          value += '\\';
+          break;
+        case '`':
+          value += '`';
+          break;
+        case '$':
+          value += '$';
+          break;
+        case '{':
+          value += '{';
+          break;
+        default:
+          value += '\\';
+          value += next;
+          break;
+        }
+      } else {
+        value += c;
+      }
+    }
+
+    if (!value.empty()) {
+      addToken(TokenType::STRING, value);
+    }
+
+    if (peek() == '$' && peekNext() == '{') {
+      advance(); // $
+      advance(); // {
+      start = current;
+      addToken(TokenType::DOLLAR_BRACE);
+      templateBraceStack.push_back(0);
+    }
+    return;
+  }
+
+  scanTokenInternal();
+}
+
+void Lexer::scanTokenInternal() {
   char c = advance();
   switch (c) {
   case '(':
@@ -143,9 +209,21 @@ void Lexer::scanToken() {
     addToken(TokenType::RIGHT_PAREN);
     break;
   case '{':
+    if (isInTemplate && !templateBraceStack.empty()) {
+      templateBraceStack.back()++;
+    }
     addToken(TokenType::LEFT_BRACE);
     break;
   case '}':
+    if (isInTemplate && !templateBraceStack.empty()) {
+      if (templateBraceStack.back() == 0) {
+        templateBraceStack.pop_back();
+        addToken(TokenType::RIGHT_BRACE);
+        return; 
+      } else {
+        templateBraceStack.back()--;
+      }
+    }
     addToken(TokenType::RIGHT_BRACE);
     break;
   case '[':
@@ -207,6 +285,15 @@ void Lexer::scanToken() {
     break;
   case '\'':
     string('\'');
+    break;
+  case '`':
+    if (isInTemplate && templateBraceStack.empty()) {
+      addToken(TokenType::BACKTICK);
+      isInTemplate = false;
+    } else {
+      addToken(TokenType::BACKTICK);
+      isInTemplate = true;
+    }
     break;
   default:
     if (isDigit(c)) {

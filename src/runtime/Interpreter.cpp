@@ -998,9 +998,41 @@ void Interpreter::interpret(std::vector<std::shared_ptr<Stmt>> statements) {
 }
 
 void Interpreter::execute(std::shared_ptr<Stmt> stmt) {
-  if (stmt)
+  if (stmt) {
     stmt->accept(*this);
+  }
 }
+
+
+bool Interpreter::isEqual(Value a, Value b) {
+  if (a.index() != b.index()) {
+      return false;
+  }
+
+  bool res = false;
+  if (std::holds_alternative<double>(a)) {
+    res = (std::get<double>(a) == std::get<double>(b));
+  } else if (std::holds_alternative<std::string>(a)) {
+    res = (std::get<std::string>(a) == std::get<std::string>(b));
+  } else if (std::holds_alternative<bool>(a)) {
+    res = (std::get<bool>(a) == std::get<bool>(b));
+  } else if (std::holds_alternative<std::monostate>(a)) {
+    res = true;
+  } else if (std::holds_alternative<std::shared_ptr<FSKArray>>(a)) {
+    auto arrA = std::get<std::shared_ptr<FSKArray>>(a);
+    auto arrB = std::get<std::shared_ptr<FSKArray>>(b);
+    if (arrA->elements.size() != arrB->elements.size()) return false;
+    for (size_t i = 0; i < arrA->elements.size(); i++) {
+        if (!isEqual(arrA->elements[i], arrB->elements[i])) return false;
+    }
+    res = true;
+  } else {
+    res = (a == b);
+  }
+  return res;
+}
+
+
 
 Value Interpreter::evaluate(std::shared_ptr<Expr> expr) {
   if (expr) {
@@ -1038,13 +1070,34 @@ void Interpreter::visitLetStmt(Let &stmt) {
     }
   }
 
-  environment->define(stmt.name.lexeme, value);
+  bindPattern(stmt.pattern, value, false);
 }
 
 void Interpreter::visitConstStmt(Const &stmt) {
   Value value = evaluate(stmt.initializer);
-  environment->define(stmt.name.lexeme, value);
+  bindPattern(stmt.pattern, value, true);
 }
+
+void Interpreter::visitMatchStmt(Match &stmt) {
+  Value value = evaluate(stmt.expression);
+
+  for (auto &arm : stmt.arms) {
+    if (matchPattern(arm.first, value)) {
+      std::shared_ptr<Environment> previousEnv = this->environment;
+      this->environment = std::make_shared<Environment>(this->environment);
+      try {
+        bindPattern(arm.first, value, false);
+        execute(arm.second);
+        this->environment = previousEnv;
+      } catch (...) {
+        this->environment = previousEnv;
+        throw;
+      }
+      return; 
+    }
+  }
+}
+
 
 void Interpreter::visitBlockStmt(Block &stmt) {
   executeBlock(stmt.statements, std::make_shared<Environment>(environment));
@@ -1228,13 +1281,13 @@ void Interpreter::visitBinaryExpr(Binary &expr) {
 }
 
 void Interpreter::visitVariableExpr(Variable &expr) {
-  lastValue = environment->get(expr.name);
+  this->lastValue = this->environment->get(expr.name);
 }
 
 void Interpreter::visitAssignExpr(Assign &expr) {
   Value value = evaluate(expr.value);
-  environment->assign(expr.name, value);
-  lastValue = value;
+  this->environment->assign(expr.name, value);
+  this->lastValue = value;
 }
 
 void Interpreter::visitLogicalExpr(Logical &expr) {
@@ -1463,6 +1516,17 @@ void Interpreter::visitFunctionExpr(FunctionExpr &expr) {
   lastValue = callable;
 }
 
+void Interpreter::visitTemplateLiteralExpr(TemplateLiteral &expr) {
+  std::string result = "";
+  for (size_t i = 0; i < expr.strings.size(); i++) {
+    result += expr.strings[i];
+    if (i < expr.expressions.size()) {
+      result += stringify(evaluate(expr.expressions[i]));
+    }
+  }
+  lastValue = result;
+}
+
 void Interpreter::visitArrayExpr(Array &expr) {
   std::vector<Value> elements;
   for (const auto &element : expr.elements) {
@@ -1559,7 +1623,8 @@ bool Interpreter::isTruthy(Value value) {
   return true;
 }
 
-bool Interpreter::isEqual(Value a, Value b) { return a == b; }
+
+
 
 std::string Interpreter::stringify(Value value) {
   if (std::holds_alternative<std::monostate>(value))
@@ -1589,6 +1654,55 @@ std::string Interpreter::stringify(Value value) {
   }
   return "Object";
 }
+
+void Interpreter::bindPattern(std::shared_ptr<Expr> pat, Value value, bool isConst) {
+  if (Variable *v = dynamic_cast<Variable *>(pat.get())) {
+    this->environment->define(v->name.lexeme, value);
+    return;
+  }
+
+  if (Array *a = dynamic_cast<Array *>(pat.get())) {
+    if (!std::holds_alternative<std::shared_ptr<FSKArray>>(value)) {
+      throw std::runtime_error("Cannot destructure non-array value.");
+    }
+    auto arr = std::get<std::shared_ptr<FSKArray>>(value);
+    for (size_t i = 0; i < a->elements.size(); i++) {
+      if (i < arr->elements.size()) {
+        bindPattern(a->elements[i], arr->elements[i], isConst);
+      } else {
+        bindPattern(a->elements[i], std::monostate{}, isConst);
+      }
+    }
+    return;
+  }
+}
+
+bool Interpreter::matchPattern(std::shared_ptr<Expr> pat, Value value) {
+  if (Literal *l = dynamic_cast<Literal *>(pat.get())) {
+    return isEqual(l->value, value);
+  }
+
+  if (Array *a = dynamic_cast<Array *>(pat.get())) {
+    if (!std::holds_alternative<std::shared_ptr<FSKArray>>(value)) return false;
+    auto arr = std::get<std::shared_ptr<FSKArray>>(value);
+    if (a->elements.size() != arr->elements.size()) return false;
+    for (size_t i = 0; i < a->elements.size(); i++) {
+        if (!matchPattern(a->elements[i], arr->elements[i])) return false;
+    }
+    return true;
+  }
+
+  if (Variable *v = dynamic_cast<Variable *>(pat.get())) {
+     return true;
+  }
+
+  return false;
+}
+
+
+
+
+
 
 void Interpreter::visitImportStmt(Import &stmt) {
   Value value = evaluate(stmt.file);
