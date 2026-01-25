@@ -24,22 +24,38 @@
 #endif
 #include <sstream> 
 #include <sqlite3.h>
-#include "easywsclient.hpp"
 #include <cstring>
 #include <vector>
 #include <array>
 #include <memory>
 #include <cstdio>
-#include <json.hpp>
 #include <iomanip>
 #include <ctime>
 #include <filesystem>
 
 #include <regex>
+
+#ifndef __EMSCRIPTEN__
+#include "easywsclient.hpp"
+#endif
+
+#include <sqlite3.h>
+#include "json.hpp"
+
+#ifndef __EMSCRIPTEN__
 #include <curl/curl.h>
+#include <openssl/ssl.h>
+#endif
 
 using json = nlohmann::json;
 
+#ifndef __EMSCRIPTEN__
+static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
+                            void *userp) {
+  ((std::string *)userp)->append((char *)contents, size * nmemb);
+  return size * nmemb;
+}
+#endif
 
 Value jsonToValue(json j) {
     if (j.is_null()) return Value(std::monostate{});
@@ -448,6 +464,7 @@ Interpreter::Interpreter() {
    fskInstance->fields["fetch"] = std::make_shared<NativeFunction>(
      1, [](Interpreter &interp, std::vector<Value> args) {
         if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("fetch attend une URL.");
+#ifndef __EMSCRIPTEN__
         std::string url = std::get<std::string>(args[0]);
         std::string cmd = "curl -s \"" + url + "\"";
         std::array<char, 128> buffer;
@@ -458,6 +475,9 @@ Interpreter::Interpreter() {
            result += buffer.data();
         }
         return Value(result);
+#else
+        return Value(std::string("Fetch not supported in WASM yet."));
+#endif
      });
 
    fskInstance->fields["sin"] = std::make_shared<NativeFunction>(
@@ -605,11 +625,15 @@ Interpreter::Interpreter() {
   auto wsClass = std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
   auto wsInstance = std::make_shared<FSKInstance>(wsClass);
 
+
+#ifndef __EMSCRIPTEN__
   static int wsIdCounter = 1;
   static std::map<int, std::shared_ptr<void>> sockets; 
   static std::map<int, std::shared_ptr<Callable>> wsCallbacks;
+#endif
 
   wsInstance->fields["connect"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+#ifndef __EMSCRIPTEN__
       if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
       std::string url = std::get<std::string>(args[0]);
       
@@ -619,9 +643,13 @@ Interpreter::Interpreter() {
       int id = wsIdCounter++;
       sockets[id] = std::shared_ptr<void>(ws); 
       return Value((double)id);
+#else
+      return Value(-1.0);
+#endif
   });
 
   wsInstance->fields["send"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+#ifndef __EMSCRIPTEN__
       if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
       int id = (int)std::get<double>(args[0]);
       std::string msg = std::get<std::string>(args[1]);
@@ -633,9 +661,13 @@ Interpreter::Interpreter() {
           return Value(true);
       }
       return Value(false);
+#else
+      return Value(false);
+#endif
   });
 
   wsInstance->fields["poll"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+#ifndef __EMSCRIPTEN__
       if (!std::holds_alternative<double>(args[0])) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
       int id = (int)std::get<double>(args[0]);
       
@@ -650,18 +682,26 @@ Interpreter::Interpreter() {
         });
       }
       return Value(std::make_shared<FSKArray>(messages));
+#else
+      return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
+#endif
   });
 
   wsInstance->fields["readyState"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+#ifndef __EMSCRIPTEN__
      if (!std::holds_alternative<double>(args[0])) return Value(-1.0);
      int id = (int)std::get<double>(args[0]);
      if (sockets.find(id) == sockets.end()) return Value(-1.0);
      auto ws = static_cast<easywsclient::WebSocket*>(sockets[id].get());
      if(ws) return Value((double)ws->getReadyState());
      return Value(-1.0);
+#else
+     return Value(-1.0);
+#endif
   });
 
   wsInstance->fields["close"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+#ifndef __EMSCRIPTEN__
      if (!std::holds_alternative<double>(args[0])) return Value(false);
      int id = (int)std::get<double>(args[0]);
      if (sockets.find(id) == sockets.end()) return Value(false);
@@ -671,6 +711,9 @@ Interpreter::Interpreter() {
          sockets.erase(id);
      }
      return Value(true);
+#else
+     return Value(false);
+#endif
   });
   
   globals->define("WS", wsInstance);
@@ -876,84 +919,102 @@ Interpreter::Interpreter() {
   auto httpClass = std::make_shared<FSKClass>("HTTP", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
   auto httpInstance = std::make_shared<FSKInstance>(httpClass);
 
-  httpInstance->fields["get"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-      if (!std::holds_alternative<std::string>(args[0])) return Value(std::monostate{});
-      std::string url = std::get<std::string>(args[0]);
-      
-      CURL *curl;
-      CURLcode res;
-      std::string readBuffer;
+   httpInstance->fields["httpGet"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return Value(std::monostate{}); 
+         std::string url = std::get<std::string>(args[0]);
 
-      curl = curl_easy_init();
-      if(curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> size_t {
-            ((std::string*)userp)->append((char*)contents, size * nmemb);
-            return size * nmemb;
-        });
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "FSK-Language/1.0");
-        
-        res = curl_easy_perform(curl);
-        long response_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-        curl_easy_cleanup(curl);
+#ifndef __EMSCRIPTEN__
+         CURL *curl;
+         CURLcode res;
+         std::string readBuffer;
 
-        if (res == CURLE_OK) {
-             static auto respClass = std::make_shared<FSKClass>("Response", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
-             auto respInstance = std::make_shared<FSKInstance>(respClass);
-             respInstance->fields["status"] = Value((double)response_code);
-             respInstance->fields["body"] = Value(readBuffer);
-             return Value(respInstance);
-        }
-      }
-      return Value(std::monostate{});
-  });
+         curl = curl_easy_init();
+         if(curl) {
+           curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+           curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> size_t {
+               ((std::string*)userp)->append((char*)contents, size * nmemb);
+               return size * nmemb;
+           });
+           curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+           // Timeout basic setup
+           curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+           curl_easy_setopt(curl, CURLOPT_USERAGENT, "FSK-Language/1.0");
 
-  httpInstance->fields["post"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
-      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(std::monostate{});
-      std::string url = std::get<std::string>(args[0]);
-      std::string postData = std::get<std::string>(args[1]);
+           res = curl_easy_perform(curl);
+           long response_code = 0;
+           curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+           
+           curl_easy_cleanup(curl);
 
-      CURL *curl;
-      CURLcode res;
-      std::string readBuffer;
+           if (res == CURLE_OK) {
+                // Return object with status and body
+                auto respClass = std::make_shared<FSKClass>("HttpResponse", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+                auto respInst = std::make_shared<FSKInstance>(respClass);
+                respInst->fields["status"] = Value((double)response_code);
+                respInst->fields["body"] = Value(readBuffer);
+                return Value(respInst);
+           }
+         }
+         return Value(std::monostate{});
+#else
+         return Value(std::string("httpGet not supported in WASM"));
+#endif
+      });
 
-      curl = curl_easy_init();
-      if(curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
-        
-        struct curl_slist *headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+   httpInstance->fields["httpPost"] = std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return Value(std::monostate{}); 
+         std::string url = std::get<std::string>(args[0]);
+         
+         std::string postData = "";
+         if (std::holds_alternative<std::string>(args[1])) {
+             postData = std::get<std::string>(args[1]);
+         } else if (std::holds_alternative<std::shared_ptr<FSKInstance>>(args[1])) {
+              // serialize logic basic
+         }
 
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> size_t {
-            ((std::string*)userp)->append((char*)contents, size * nmemb);
-            return size * nmemb;
-        });
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "FSK-Language/1.0");
-        
-        res = curl_easy_perform(curl);
-        long response_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+#ifndef __EMSCRIPTEN__
+         CURL *curl;
+         CURLcode res;
+         std::string readBuffer;
 
-        curl_easy_cleanup(curl);
-        curl_slist_free_all(headers);
+         curl = curl_easy_init();
+         if(curl) {
+           curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+           curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
 
-        if (res == CURLE_OK) {
-             static auto respClass = std::make_shared<FSKClass>("Response", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
-             auto respInstance = std::make_shared<FSKInstance>(respClass);
-             respInstance->fields["status"] = Value((double)response_code);
-             respInstance->fields["body"] = Value(readBuffer);
-             return Value(respInstance);
-        }
-      }
-      return Value(std::monostate{});     
-  });
+           struct curl_slist *headers = NULL;
+           headers = curl_slist_append(headers, "Content-Type: application/json");
+           curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+           curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> size_t {
+               ((std::string*)userp)->append((char*)contents, size * nmemb);
+               return size * nmemb;
+           });
+           curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+
+           res = curl_easy_perform(curl);
+           
+           long response_code = 0;
+           curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+           curl_slist_free_all(headers);
+           curl_easy_cleanup(curl);
+           
+           if (res == CURLE_OK) {
+                auto respClass = std::make_shared<FSKClass>("HttpResponse", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+                auto respInst = std::make_shared<FSKInstance>(respClass);
+                respInst->fields["status"] = Value((double)response_code);
+                respInst->fields["body"] = Value(readBuffer);
+                return Value(respInst);
+           }
+         }
+         return Value(std::monostate{});
+#else
+         return Value(std::string("httpPost not supported in WASM"));
+#endif
+      });
 
   globals->define("HTTP", httpInstance);
 

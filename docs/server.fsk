@@ -931,6 +931,52 @@ fpm run          // Execute entry point defined in fpm.json
       </div>", false);
 }
 
+
+fn pageWebWASM(sidebar) {
+    return renderPage("WebAssembly 3D", "
+      <div class='doc-container'>
+        " + sidebar + "
+        <main class='content'>
+            <h1>Web Development (WASM)</h1>
+            <p>Fsk can be compiled to WebAssembly to run directly in the browser with high performance. We provide a built-in framework for 3D web applications.</p>
+            
+            <h2>1. Initialize Web Project</h2>
+            <p>Create a new folder or go to your project root and run:</p>
+            <pre>
+fsk webinit
+            </pre>
+            <p>This generates:</p>
+            <ul>
+                <li><code>web/index.html</code>: Minimal entry point.</li>
+                <li><code>web/ui.js</code>: 3D Engine & UI Logic (Clean Architecture).</li>
+                <li><code>web/main.fsk</code>: Your main Fsk script.</li>
+            </ul>
+
+            <h2>2. Build for Web</h2>
+            <p>Compile your Fsk code to WASM using Emscripten (ensure <code>emcc</code> is installed or use local emsdk):</p>
+            <pre>
+fsk build
+            </pre>
+            <p><b>Note:</b> You can run this from the project root or inside the <code>web/</code> directory.</p>
+
+            <h2>3. Serve Locally</h2>
+            <p>Fsk includes a native C++ web server to preview your app correctly (supports WASM MIME types):</p>
+            <pre>
+fsk start
+            </pre>
+            <p>Open <code>http://localhost:8080</code> to see your 3D application running!</p>
+
+            <h2>Architecture</h2>
+            <p>The generated project follows a <b>Clean Architecture</b> pattern:</p>
+            <ul>
+                <li><b>index.html</b>: Strictly for structure, no inline scripts.</li>
+                <li><b>ui.js</b>: Handles all DOM manipulation and Three.js 3D rendering. It exposes an API for Fsk to interact with.</li>
+                <li><b>main.fsk</b>: Controls the logic. It calls JavaScript functions via the <code>FFI</code> (Foreign Function Interface) if needed.</li>
+            </ul>
+        </main>
+      </div>", false);
+}
+
 fn pageHome() {
     return renderPage("Home", "
         <div class='hero'>
@@ -1115,6 +1161,7 @@ fn handleRequest(req) {
             <li><a href='/sql'>SQL (SQLite)</a></li>
             <li><a href='/console'>Console (TUI)</a></li>
             <li><a href='/networking'>Networking</a></li>
+            <li><a href='/webwasm'>WebAssembly 3D</a></li>
             <li><a href='/fpm'>Packages (FPM)</a></li>
             <li><a href='/globals'>Globals</a></li>
             <li><a href='/cookbook'>Cookbook</a></li>
@@ -1159,6 +1206,7 @@ fn handleRequest(req) {
   if (FSK.indexOf(req, "GET /fs ") != -1) return pageFS(sidebar);
   if (FSK.indexOf(req, "GET /date ") != -1) return pageDate(sidebar);
   if (FSK.indexOf(req, "GET /console ") != -1) return pageConsole(sidebar);
+  if (FSK.indexOf(req, "GET /webwasm ") != -1) return pageWebWASM(sidebar);
   
   return renderPage("404", "<h1>404</h1>", false);
 

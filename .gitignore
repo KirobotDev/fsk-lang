@@ -1,12 +1,32 @@
-build/
 .vscode/
-.DS_Store
 *.o
 *.a
-bin/
 fsk_modules/
 **/packages.db
 *.db
 registry.pid
 test.db 
+
+#############################
+# Build Fichier             #
+#############################
+
+build/
 build_windows/
+bin/
+lib/
+
+#############################
+# Cmake Fichier             #
+#############################
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+#############################
+# system Fichier            #
+#############################
+
+.DS_Store

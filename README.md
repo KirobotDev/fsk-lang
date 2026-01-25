@@ -148,6 +148,35 @@ print Math.max(10, 20); // 20
 print Math.pow(2, 3); // 8
 ```
 
+## Web Development (WebAssembly)
+
+Fsk allows you to compile your code to WebAssembly (WASM) and run it in the browser with a high-performance 3D engine.
+
+### 1. Initialize a Web Project
+Run this command to create a new `web/` folder with a modern project structure:
+```bash
+fsk webinit
+```
+This generates:
+- `web/ui.js`: Handles 3D rendering and UI logic (Clean Architecture).
+- `web/index.html`: Minimal entry point.
+- `web/main.fsk`: Your main Fsk logic.
+
+### 2. Build for Web
+Compile your Fsk code to WASM:
+```bash
+fsk build
+```
+This requires [Emscripten](https://emscripten.org/) installed globally or locally in `emsdk/`.
+*Note: You can run this command from the project root OR directly inside the `web/` folder.*
+
+### 3. Start Local Server
+Launch the native C++ web server to test your app:
+```bash
+fsk start
+```
+Open `http://localhost:8080`.
+
 ## Web Server
 
 Fsk includes a native HTTP server! You can run the self-hosted documentation:
