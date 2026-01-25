@@ -1,0 +1,9 @@
+
+fn double(x) { return x * 2; }
+fn square(x) { return x * x; }
+fn shout(s) { return s.toUpperCase() + "!"; }
+
+let res = 5 |> double |> square;
+print "Test 1 (Chain): " + res; // (5*2)^2 = 100
+
+print "Test 2 (String): " + ("hello" |> shout);

@@ -236,7 +236,23 @@ void Lexer::scanTokenInternal() {
     addToken(TokenType::COMMA);
     break;
   case '.':
-    addToken(TokenType::DOT);
+    if (match('.') && match('.')) {
+      addToken(TokenType::ELLIPSIS);
+    } else {
+      addToken(TokenType::DOT);
+    }
+    break;
+  case '?':
+    if (match('.')) {
+      addToken(TokenType::QUESTION_DOT);
+    } else if (match('?')) {
+      addToken(TokenType::QUESTION_QUESTION);
+    } 
+    break;
+  case '|':
+    if (match('>')) {
+      addToken(TokenType::PIPE);
+    }
     break;
   case ':':
     addToken(TokenType::COLON);

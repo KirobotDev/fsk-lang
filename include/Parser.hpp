@@ -35,10 +35,12 @@ private:
   std::shared_ptr<Expr> expression();
   std::shared_ptr<Expr> pattern();
   std::shared_ptr<Expr> assignment();
+  std::shared_ptr<Expr> nullish();
   std::shared_ptr<Expr> or_expr();
   std::shared_ptr<Expr> and_expr();
   std::shared_ptr<Expr> equality();
   std::shared_ptr<Expr> comparison();
+  std::shared_ptr<Expr> pipeline();
   std::shared_ptr<Expr> term();
   std::shared_ptr<Expr> factor();
   std::shared_ptr<Expr> unary();

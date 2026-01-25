@@ -122,7 +122,9 @@ struct Call : Expr {
 struct Get : Expr {
   std::shared_ptr<Expr> object;
   Token name;
-  Get(std::shared_ptr<Expr> object, Token name) : object(object), name(name) {}
+  bool isOptional;
+  Get(std::shared_ptr<Expr> object, Token name, bool isOptional = false) 
+      : object(object), name(name), isOptional(isOptional) {}
   void accept(ExprVisitor &visitor) override { visitor.visitGetExpr(*this); }
 };
 
@@ -156,8 +158,12 @@ struct Await : Expr {
 };
 
 struct Array : Expr {
-  std::vector<std::shared_ptr<Expr>> elements;
-  Array(std::vector<std::shared_ptr<Expr>> elements) : elements(elements) {}
+  struct Element {
+      std::shared_ptr<Expr> expr;
+      bool isSpread;
+  };
+  std::vector<Element> elements;
+  Array(std::vector<Element> elements) : elements(elements) {}
   void accept(ExprVisitor &visitor) override { visitor.visitArrayExpr(*this); }
 };
 

@@ -1,0 +1,4 @@
+// Fsk Web Entry Point
+print "Connection established.";
+print "Secure environment active.";
+// Your code here

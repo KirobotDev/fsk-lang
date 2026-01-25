@@ -1,0 +1,9 @@
+
+let a = [1, 2];
+let b = [0, ...a, 3];
+print "Test 1 (Spread Array): " + b; 
+
+let list = [10, 20, 30, 40];
+let [head, ...tail] = list;
+print "Test 2 (Head): " + head;
+print "Test 3 (Tail): " + tail;

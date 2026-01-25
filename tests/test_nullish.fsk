@@ -1,0 +1,11 @@
+
+let a = nil;
+print "Test 1 (nil ?? default): " + (a ?? "default");
+
+let b = false;
+print "Test 2 (false ?? default): " + (b ?? "default");
+
+let c = "valid";
+print "Test 3 (valid ?? default): " + (c ?? "default");
+
+print "Test 4 (Chained): " + (nil ?? nil ?? "final");

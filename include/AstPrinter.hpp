@@ -221,7 +221,8 @@ public:
   void visitArrayExpr(Array &expr) override {
     std::cout << "[";
     for (size_t i = 0; i < expr.elements.size(); i++) {
-        expr.elements[i]->accept(*this);
+        if (expr.elements[i].isSpread) std::cout << "...";
+        expr.elements[i].expr->accept(*this);
         if (i < expr.elements.size() - 1) std::cout << ", ";
     }
     std::cout << "]";

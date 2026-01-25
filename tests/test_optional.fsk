@@ -1,0 +1,16 @@
+
+let a = nil;
+print "Test 1 (nil): " + (a?.b);
+
+let user = nil;
+let name = user?.profile?.name;
+print "Test 2 (nested nil): " + name;
+
+class User {
+    fn init(n) { this.name = n; }
+}
+let u = User("Sionuk");
+print "Test 3 (valid): " + u?.name;
+
+let num = 42;
+print "Test 4 (invalid type): " + (num?.prop);

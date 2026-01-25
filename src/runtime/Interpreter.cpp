@@ -1336,6 +1336,19 @@ void Interpreter::visitBinaryExpr(Binary &expr) {
   case TokenType::STAR:
     lastValue = std::get<double>(left) * std::get<double>(right);
     break;
+  case TokenType::PIPE:
+    if (std::holds_alternative<std::shared_ptr<Callable>>(right)) {
+        auto function = std::get<std::shared_ptr<Callable>>(right);
+        if (function->arity() != 1 && function->arity() != -1) {
+             throw std::runtime_error("Pipe operator expects a function with 1 argument.");
+        }
+        std::vector<Value> args;
+        args.push_back(left);
+        lastValue = function->call(*this, args);
+    } else {
+        throw std::runtime_error("Pipe operator expects a function on the right.");
+    }
+    break;
   default:
     break;
   }
@@ -1358,6 +1371,11 @@ void Interpreter::visitLogicalExpr(Logical &expr) {
       lastValue = left;
       return;
     }
+  } else if (expr.op.type == TokenType::QUESTION_QUESTION) {
+     if (!std::holds_alternative<std::monostate>(left)) {
+         lastValue = left;
+         return;
+     }
   } else {
     if (!isTruthy(left)) {
       lastValue = left;
@@ -1390,6 +1408,13 @@ void Interpreter::visitCallExpr(Call &expr) {
 }
 void Interpreter::visitGetExpr(Get &expr) {
   Value object = evaluate(expr.object);
+
+  if (expr.isOptional) {
+     if (std::holds_alternative<std::monostate>(object)) {
+         lastValue = std::monostate{};
+         return;
+     }
+  }
   if (std::holds_alternative<std::shared_ptr<FSKInstance>>(object)) {
     lastValue = std::get<std::shared_ptr<FSKInstance>>(object)->get(expr.name);
     return;
@@ -1524,6 +1549,11 @@ void Interpreter::visitGetExpr(Get &expr) {
     }
   }
 
+  if (expr.isOptional) {
+      lastValue = std::monostate{};
+      return;
+  }
+
   throw std::runtime_error("Seules les instances, tableaux et chaînes ont des propriétés.");
 }
 
@@ -1591,7 +1621,17 @@ void Interpreter::visitTemplateLiteralExpr(TemplateLiteral &expr) {
 void Interpreter::visitArrayExpr(Array &expr) {
   std::vector<Value> elements;
   for (const auto &element : expr.elements) {
-    elements.push_back(evaluate(element));
+    Value val = evaluate(element.expr);
+    if (element.isSpread) {
+        if (std::holds_alternative<std::shared_ptr<FSKArray>>(val)) {
+            auto arr = std::get<std::shared_ptr<FSKArray>>(val);
+            elements.insert(elements.end(), arr->elements.begin(), arr->elements.end());
+        } else {
+            throw std::runtime_error("Spread operator expects an array.");
+        }
+    } else {
+        elements.push_back(val);
+    }
   }
   lastValue = std::make_shared<FSKArray>(elements);
 }
@@ -1727,11 +1767,22 @@ void Interpreter::bindPattern(std::shared_ptr<Expr> pat, Value value, bool isCon
       throw std::runtime_error("Cannot destructure non-array value.");
     }
     auto arr = std::get<std::shared_ptr<FSKArray>>(value);
+    
+    size_t valIdx = 0;
     for (size_t i = 0; i < a->elements.size(); i++) {
-      if (i < arr->elements.size()) {
-        bindPattern(a->elements[i], arr->elements[i], isConst);
+      if (a->elements[i].isSpread) {
+          std::vector<Value> rest;
+          while (valIdx < arr->elements.size()) {
+              rest.push_back(arr->elements[valIdx++]);
+          }
+          bindPattern(a->elements[i].expr, std::make_shared<FSKArray>(rest), isConst);
+          return; 
+      }
+
+      if (valIdx < arr->elements.size()) {
+        bindPattern(a->elements[i].expr, arr->elements[valIdx++], isConst);
       } else {
-        bindPattern(a->elements[i], std::monostate{}, isConst);
+        bindPattern(a->elements[i].expr, std::monostate{}, isConst);
       }
     }
     return;
@@ -1746,9 +1797,10 @@ bool Interpreter::matchPattern(std::shared_ptr<Expr> pat, Value value) {
   if (Array *a = dynamic_cast<Array *>(pat.get())) {
     if (!std::holds_alternative<std::shared_ptr<FSKArray>>(value)) return false;
     auto arr = std::get<std::shared_ptr<FSKArray>>(value);
+    
     if (a->elements.size() != arr->elements.size()) return false;
     for (size_t i = 0; i < a->elements.size(); i++) {
-        if (!matchPattern(a->elements[i], arr->elements[i])) return false;
+        if (!matchPattern(a->elements[i].expr, arr->elements[i])) return false;
     }
     return true;
   }

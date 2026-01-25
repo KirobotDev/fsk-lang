@@ -63,6 +63,11 @@ enum class TokenType {
   MATCH,
   BACKTICK,
   DOLLAR_BRACE,
+  
+  QUESTION_DOT,     
+  QUESTION_QUESTION, 
+  PIPE,             
+  ELLIPSIS,         
 
   EOF_TOKEN
 };

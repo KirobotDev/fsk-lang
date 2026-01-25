@@ -116,10 +116,11 @@ std::shared_ptr<Expr> Parser::pattern() {
   }
 
   if (match({TokenType::LEFT_BRACKET})) {
-    std::vector<std::shared_ptr<Expr>> elements;
+    std::vector<Array::Element> elements;
     if (!check(TokenType::RIGHT_BRACKET)) {
       do {
-        elements.push_back(pattern());
+        bool isSpread = match({TokenType::ELLIPSIS});
+        elements.push_back({pattern(), isSpread});
       } while (match({TokenType::COMMA}));
     }
     consume(TokenType::RIGHT_BRACKET, "Expect ']' after array pattern.");
@@ -280,7 +281,7 @@ std::shared_ptr<Stmt> Parser::expressionStatement() {
 std::shared_ptr<Expr> Parser::expression() { return assignment(); }
 
 std::shared_ptr<Expr> Parser::assignment() {
-  std::shared_ptr<Expr> expr = or_expr();
+  std::shared_ptr<Expr> expr = nullish();
   if (match({TokenType::EQUAL})) {
     Token equals = previous();
     std::shared_ptr<Expr> value = assignment();
@@ -291,6 +292,16 @@ std::shared_ptr<Expr> Parser::assignment() {
     } else if (IndexExpr *i = dynamic_cast<IndexExpr *>(expr.get())) {
       return std::make_shared<IndexSet>(i->callee, i->index, value);
     }
+  }
+  return expr;
+}
+
+std::shared_ptr<Expr> Parser::nullish() {
+  std::shared_ptr<Expr> expr = or_expr();
+  while (match({TokenType::QUESTION_QUESTION})) {
+    Token op = previous();
+    std::shared_ptr<Expr> right = or_expr();
+    expr = std::make_shared<Logical>(expr, op, right);
   }
   return expr;
 }
@@ -326,9 +337,19 @@ std::shared_ptr<Expr> Parser::equality() {
 }
 
 std::shared_ptr<Expr> Parser::comparison() {
-  std::shared_ptr<Expr> expr = term();
+  std::shared_ptr<Expr> expr = pipeline();
   while (match({TokenType::GREATER, TokenType::GREATER_EQUAL, TokenType::LESS,
                 TokenType::LESS_EQUAL})) {
+    Token op = previous();
+    std::shared_ptr<Expr> right = pipeline();
+    expr = std::make_shared<Binary>(expr, op, right);
+  }
+  return expr;
+}
+
+std::shared_ptr<Expr> Parser::pipeline() {
+  std::shared_ptr<Expr> expr = term();
+  while (match({TokenType::PIPE})) {
     Token op = previous();
     std::shared_ptr<Expr> right = term();
     expr = std::make_shared<Binary>(expr, op, right);
@@ -377,10 +398,11 @@ std::shared_ptr<Expr> Parser::call() {
   while (true) {
     if (match({TokenType::LEFT_PAREN})) {
       expr = finishCall(expr);
-    } else if (match({TokenType::DOT})) {
+    } else if (match({TokenType::DOT, TokenType::QUESTION_DOT})) {
+      bool isOptional = previous().type == TokenType::QUESTION_DOT;
       Token name =
-          consume(TokenType::IDENTIFIER, "Expect property name after '.'.");
-      expr = std::make_shared<Get>(expr, name);
+          consume(TokenType::IDENTIFIER, "Expect property name after member access.");
+      expr = std::make_shared<Get>(expr, name, isOptional);
     } else if (match({TokenType::LEFT_BRACKET})) {
       std::shared_ptr<Expr> index = expression();
       Token bracket = consume(TokenType::RIGHT_BRACKET, "Expect ']' after index.");
@@ -477,10 +499,11 @@ std::shared_ptr<Expr> Parser::primary() {
   }
 
   if (match({TokenType::LEFT_BRACKET})) {
-    std::vector<std::shared_ptr<Expr>> elements;
+    std::vector<Array::Element> elements;
     if (!check(TokenType::RIGHT_BRACKET)) {
       do {
-        elements.push_back(expression());
+        bool isSpread = match({TokenType::ELLIPSIS});
+        elements.push_back({expression(), isSpread});
       } while (match({TokenType::COMMA}));
     }
     consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
