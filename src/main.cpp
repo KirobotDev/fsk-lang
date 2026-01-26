@@ -241,6 +241,7 @@ void handleWebInit() {
     }
 }
 
+#ifndef __EMSCRIPTEN__
 void handleWebBuild() {
     bool insideWeb = false;
     std::string webPath = "web";
@@ -333,8 +334,9 @@ void handleWebBuild() {
         std::cerr << "Build error: " << e.what() << std::endl;
     }
 }
+#endif
 
-// --- Native Web Server ---
+#ifndef __EMSCRIPTEN__
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -345,7 +347,9 @@ void handleWebBuild() {
 #include <arpa/inet.h>
 #include <unistd.h>
 #endif
+#endif
 
+#ifndef __EMSCRIPTEN__
 void sendResponse(int clientSocket, const std::string& status, const std::string& contentType, const std::string& body) {
     std::string response = "HTTP/1.1 " + status + "\r\n"
                            "Content-Type: " + contentType + "\r\n"
@@ -364,7 +368,6 @@ std::string getMimeType(const std::string& path) {
     if (path.ends_with(".ico")) return "image/x-icon";
     return "text/plain";
 }
-
 
 void handleWebStart(int port = 8080) {
     std::string serveDir = "web/build";
@@ -386,8 +389,6 @@ void handleWebStart(int port = 8080) {
           return;
     }
 
-    // int port = 8080; // Replaced by argument
-    
 #ifdef _WIN32
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -464,9 +465,8 @@ void handleWebStart(int port = 8080) {
                 std::stringstream fileBuffer;
                 fileBuffer << file.rdbuf();
                 sendResponse(new_socket, "200 OK", getMimeType(fullPath), fileBuffer.str());
-                std::cout << "Served: " << path << std::endl;
+                // std::cout << "Served: " << path << std::endl;
             } else {
-                // SPA Fallback: Serve index.html for unknown paths (if not looking for a file extension)
                 if (path.find('.') == std::string::npos) {
                      std::string indexPath = serveDir + "/index.html";
                      if (fs::exists(indexPath)) {
@@ -474,7 +474,6 @@ void handleWebStart(int port = 8080) {
                         std::stringstream fileBuffer;
                         fileBuffer << file.rdbuf();
                         sendResponse(new_socket, "200 OK", "text/html", fileBuffer.str());
-                        std::cout << "Served (SPA): " << path << " -> /index.html" << std::endl;
                      } else {
                         sendResponse(new_socket, "404 Not Found", "text/plain", "Not Found");
                      }
@@ -490,6 +489,7 @@ void handleWebStart(int port = 8080) {
 #endif
     }
 }
+#endif
 
 int main(int argc, char *argv[]) {
   if (argc >= 2) {
@@ -500,10 +500,10 @@ int main(int argc, char *argv[]) {
     }
     if (arg == "--help" || arg == "-h") {
       std::cout << "Usage: fsk [command] [options]" << std::endl;
-      // ... help ...
       return 0;
     }
     
+#ifndef __EMSCRIPTEN__
     if (arg == "webinit") { handleWebInit(); return 0; }
     if (arg == "build") { handleWebBuild(); return 0; }
     if (arg == "start") { 
@@ -518,6 +518,7 @@ int main(int argc, char *argv[]) {
         handleWebStart(port); 
         return 0; 
     }
+#endif
     
     runFile(argc, argv);
   } else {
