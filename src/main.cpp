@@ -62,29 +62,121 @@ void runFile(int argc, char *argv[]) {
 
 
 const char* MINIMAL_HTML_TEMPLATE = R"(<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fsk App</title>
+    <title>Fsk Earth</title>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f0f0; color: #333; }
-        #root { width: 100vw; height: 100vh; overflow-y: auto; }
-        .loading { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 1.5rem; color: #666; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        #canvas-ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
     </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
     <script type="module" src="ui.js" defer></script>
 </head>
 <body>
-    <div id="root">
-        <div class="loading">Loading Fsk Runtime...</div>
-    </div>
+    <div id="canvas-ui"></div>
+    <div id="root"></div>
 </body>
 </html>)";
 
 const char* UI_JS_TEMPLATE = R"(
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 (function() {
-    // --- Fsk React-like Router Engine ---
+    const container = document.getElementById('canvas-ui');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    camera.position.z = 4;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.rotateSpeed = 0.8;
+    controls.enableZoom = true;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 10;
+
+    const loader = new THREE.TextureLoader();
+    const earthMap = loader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+    const earthBump = loader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+    const earthSpec = loader.load('https://unpkg.com/three-globe/example/img/earth-waterbodies.png');
+
+    const earthGeometry = new THREE.SphereGeometry(1.6, 64, 64);
+    const earthMaterial = new THREE.MeshPhongMaterial({
+        map: earthMap,
+        bumpMap: earthBump,
+        bumpScale: 0.05,
+        specularMap: earthSpec,
+        specular: new THREE.Color('grey'),
+        shininess: 10
+    });
+    
+    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    scene.add(earth);
+
+    const cloudGeometry = new THREE.SphereGeometry(1.62, 64, 64);
+    const cloudTexture = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png');
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+        map: cloudTexture,
+        transparent: true,
+        opacity: 0.4,
+        depthWrite: false
+    });
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    scene.add(clouds);
+
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7 });
+    const starVertices = [];
+    for (let i = 0; i < 15000; i++) {
+        const x = (Math.random() - 0.5) * 2000;
+        const y = (Math.random() - 0.5) * 2000;
+        const z = (Math.random() - 0.5) * 2000;
+        starVertices.push(x, y, z);
+    }
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    sunLight.position.set(5, 3, 5);
+    scene.add(sunLight);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        earth.rotation.y += 0.001;
+        clouds.rotation.y += 0.0015;
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+
     function loadScript(src) {
         return new Promise((resolve, reject) => {
             const s = document.createElement('script');
@@ -95,42 +187,21 @@ const char* UI_JS_TEMPLATE = R"(
         });
     }
 
-    // State
     const root = document.getElementById('root');
     let isRequestPending = false;
 
-    // --- Communication Bridge ---
     function sendRequest(path) {
         if (!window.FS) return;
         if (isRequestPending) return;
-
         isRequestPending = true;
-        // console.log("[Router] Navigating:", path);
-        
         try {
-            // Write request
             const req = "GET " + path + " HTTP/1.1";
             FS.writeFile('request.tmp', req);
         } catch(e) { console.error(e); isRequestPending = false; }
     }
 
     function updateDOM(html) {
-        // Simple Virtual DOM diffing replacement (InnerHTML for now)
         root.innerHTML = html;
-        
-        // Re-attach intercepts
-        const links = root.querySelectorAll('a');
-        links.forEach(a => {
-            a.addEventListener('click', (e) => {
-                const href = a.getAttribute('href');
-                if (href && href.startsWith('/')) {
-                    e.preventDefault();
-                    history.pushState({}, "", href);
-                    sendRequest(href);
-                }
-            });
-        });
-        
         isRequestPending = false;
     }
 
@@ -144,70 +215,29 @@ const char* UI_JS_TEMPLATE = R"(
                     updateDOM(content);
                 }
             } catch(e) {}
-        }, 50); // Fast polling
+        }, 50);
     }
 
-    // --- Initialization ---
     window.Module = {
-        print: (t) => console.log("[FSK]", t),
-        printErr: (t) => console.error("[FSK ERR]", t),
+        print: (t) => {},
+        printErr: (t) => {},
         onRuntimeInitialized: () => {
-            console.log("Fsk Ready.");
-            
-            // Ensure Global FS
             if (!window.FS && Module.FS) window.FS = Module.FS;
-            
             Module.callMain(['web/main.fsk']);
-            
-            // Initial Route
             const path = window.location.pathname === '/index.html' ? '/' : window.location.pathname;
             sendRequest(path);
             startPolling();
         }
     };
     
-    // History support
     window.onpopstate = () => sendRequest(window.location.pathname);
-
-    // Bootstrap
     loadScript('fsk.js');
 })();
 )";
 
-const char* MAIN_FSK_TEMPLATE = R"(// Fsk Web Application
-// Acts like a Backend Server for the Frontend!
-
-fn renderHome() {
-    return "
-        <div style='text-align:center; padding: 50px;'>
-            <h1 style='color: #5555FF;'>Welcome to Fsk Web</h1>
-            <p>This is a compiled WebAssembly application.</p>
-            <div style='margin-top:20px;'>
-                <a href='/about' style='margin:10px; color:#333;'>About</a>
-                <a href='/contact' style='margin:10px; color:#333;'>Contact</a>
-            </div>
-            <p style='margin-top:50px; color:#999;'>Server Time: " + clock() + "s</p>
-        </div>
-    ";
+const char* MAIN_FSK_TEMPLATE = R"(fn handle(req) {
+    return "";
 }
-
-fn renderAbout() {
-    return "
-        <div style='padding: 50px;'>
-            <h1>About</h1>
-            <p>Fsk brings server-side logic to the browser.</p>
-            <a href='/'>Back Home</a>
-        </div>
-    ";
-}
-
-fn handle(req) {
-    if (FSK.indexOf(req, "GET /about") != -1) return renderAbout();
-    if (FSK.indexOf(req, "GET /contact") != -1) return "<h1>Contact Us</h1><a href='/'>Home</a>";
-    return renderHome();
-}
-
-print "Starting Fsk Router...";
 FSK.startServer(80, handle);
 )";
 

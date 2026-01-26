@@ -1,5 +1,4 @@
 print "Main Start";
-// Start the worker
 let w = Worker.init("../tests/worker_task.fsk");
 
 if (w.id == nil) {
