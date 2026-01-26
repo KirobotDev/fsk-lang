@@ -304,8 +304,9 @@ void handleWebBuild() {
                       "-s \"EXPORTED_RUNTIME_METHODS=['callMain', 'FS']\" "
                       "-s ALLOW_MEMORY_GROWTH=1 "
                       "-s DISABLE_EXCEPTION_CATCHING=0 "
-                      "-s USE_SQLITE3=1 " 
+                      "-s USES_SQLITE3=1 " 
                       "-s ASYNCIFY=1 " 
+                      "-s ASSERTIONS=1 " 
                       + embedArg + " "
                       + outputArg;
     
