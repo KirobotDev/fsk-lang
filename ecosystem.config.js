@@ -2,10 +2,10 @@ module.exports = {
     apps: [
         {
             name: "fsk-docs",
-            script: "./build/fsk",
-            args: "docs/server.fsk",
+            script: "bash",
+            args: "-c 'fsk build && fsk start 8092'",
+            cwd: "./docs",
             interpreter: "none",
-            cwd: ".",
             exec_mode: "fork",
             env: {
                 NODE_ENV: "production",

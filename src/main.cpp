@@ -364,7 +364,8 @@ std::string getMimeType(const std::string& path) {
     return "text/plain";
 }
 
-void handleWebStart() {
+
+void handleWebStart(int port = 8080) {
     std::string serveDir = "web/build";
     
     if (fs::exists("build") && fs::exists("build/fsk.js")) {
@@ -384,7 +385,7 @@ void handleWebStart() {
           return;
     }
 
-    int port = 8080;
+    // int port = 8080; // Replaced by argument
     
 #ifdef _WIN32
     WSADATA wsaData;
@@ -504,7 +505,18 @@ int main(int argc, char *argv[]) {
     
     if (arg == "webinit") { handleWebInit(); return 0; }
     if (arg == "build") { handleWebBuild(); return 0; }
-    if (arg == "start") { handleWebStart(); return 0; }
+    if (arg == "start") { 
+        int port = 8080;
+        if (argc >= 3) {
+            try {
+                port = std::stoi(argv[2]);
+            } catch(...) {
+                std::cerr << "Invalid port number. Using 8080." << std::endl;
+            }
+        }
+        handleWebStart(port); 
+        return 0; 
+    }
     
     runFile(argc, argv);
   } else {

@@ -108,10 +108,8 @@
                         console.error("[ROUTER] Content too short! Potential error.");
                     }
 
-                    // Use srcdoc for cleaner rendering
                     iframe.srcdoc = content;
 
-                    // Re-inject interceptors after load (approximate)
                     iframe.onload = () => {
                         injectInterceptors();
                         console.log("[ROUTER] Iframe Loaded.");
