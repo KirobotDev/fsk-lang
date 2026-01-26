@@ -434,6 +434,7 @@ Interpreter::Interpreter() {
           throw std::runtime_error("shell attend une commande (string).");
         }
         std::string cmd = std::get<std::string>(args[0]);
+#ifndef __EMSCRIPTEN__
         std::array<char, 128> buffer;
         std::string result;
         std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
@@ -444,6 +445,9 @@ Interpreter::Interpreter() {
            result += buffer.data();
         }
         return Value(result);
+#else
+        return Value(std::string("Shell commands not supported in WASM."));
+#endif
       });
 
   fskInstance->fields["indexOf"] = std::make_shared<NativeFunction>(

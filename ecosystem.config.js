@@ -3,7 +3,7 @@ module.exports = {
         {
             name: "fsk-docs",
             script: "bash",
-            args: "-c 'fsk build && fsk start 8092'",
+            args: "fsk build && fsk start 8092",
             cwd: "./docs",
             interpreter: "none",
             exec_mode: "fork",
