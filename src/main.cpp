@@ -301,8 +301,9 @@ void handleWebBuild() {
     std::string cmd = cmdPrefix + "emcc " + srcPrefix + "src/main.cpp " + srcPrefix + "src/lexer/Lexer.cpp " + srcPrefix + "src/parser/Parser.cpp " + srcPrefix + "src/runtime/Interpreter.cpp " + srcPrefix + "src/runtime/Callable.cpp " +
                       includePrefix + " -std=c++20 -O3 -w "
                       "-s WASM=1 "
+                      "-s ENVIRONMENT=web "
                       "-s EXIT_RUNTIME=1 "
-                      "-s \"EXPORTED_RUNTIME_METHODS=['callMain', 'FS']\" "
+                      "-s EXPORTED_RUNTIME_METHODS=callMain,FS,UTF8ToString,stringToUTF8 "
                       "-s ALLOW_MEMORY_GROWTH=1 "
                       "-s DISABLE_EXCEPTION_CATCHING=0 "
                       "-s USE_SQLITE3=1 " 
@@ -351,11 +352,14 @@ void handleWebBuild() {
 
 #ifndef __EMSCRIPTEN__
 void sendResponse(int clientSocket, const std::string& status, const std::string& contentType, const std::string& body) {
-    std::string response = "HTTP/1.1 " + status + "\r\n"
-                           "Content-Type: " + contentType + "\r\n"
-                           "Content-Length: " + std::to_string(body.size()) + "\r\n"
-                           "Connection: close\r\n\r\n" + body;
-    send(clientSocket, response.c_str(), response.size(), 0);
+    std::ostringstream oss;
+    oss << "HTTP/1.1 " << status << "\r\n"
+        << "Content-Type: " << contentType << "\r\n"
+        << "Content-Length: " << body.size() << "\r\n"
+        << "Connection: close\r\n\r\n";
+    std::string headers = oss.str();
+    send(clientSocket, headers.c_str(), headers.size(), 0);
+    send(clientSocket, body.data(), body.size(), 0);
 }
 
 std::string getMimeType(const std::string& path) {
@@ -462,18 +466,15 @@ void handleWebStart(int port = 8080) {
             
             if (fs::exists(fullPath) && !fs::is_directory(fullPath)) {
                 std::ifstream file(fullPath, std::ios::binary);
-                std::stringstream fileBuffer;
-                fileBuffer << file.rdbuf();
-                sendResponse(new_socket, "200 OK", getMimeType(fullPath), fileBuffer.str());
-                // std::cout << "Served: " << path << std::endl;
+                std::string body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                sendResponse(new_socket, "200 OK", getMimeType(fullPath), body);
             } else {
                 if (path.find('.') == std::string::npos) {
                      std::string indexPath = serveDir + "/index.html";
                      if (fs::exists(indexPath)) {
                         std::ifstream file(indexPath, std::ios::binary);
-                        std::stringstream fileBuffer;
-                        fileBuffer << file.rdbuf();
-                        sendResponse(new_socket, "200 OK", "text/html", fileBuffer.str());
+                        std::string body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                        sendResponse(new_socket, "200 OK", "text/html", body);
                      } else {
                         sendResponse(new_socket, "404 Not Found", "text/plain", "Not Found");
                      }
