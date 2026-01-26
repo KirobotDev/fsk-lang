@@ -66,16 +66,25 @@ const char* MINIMAL_HTML_TEMPLATE = R"(<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FSK</title>
-    <style>body{margin:0;overflow:hidden;background:#000;}</style>
+    <title>Fsk App</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f0f0; color: #333; }
+        #root { width: 100vw; height: 100vh; overflow-y: auto; }
+        .loading { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 1.5rem; color: #666; }
+    </style>
     <script type="module" src="ui.js" defer></script>
 </head>
 <body>
+    <div id="root">
+        <div class="loading">Loading Fsk Runtime...</div>
+    </div>
 </body>
 </html>)";
 
 const char* UI_JS_TEMPLATE = R"(
 (function() {
+    // --- Fsk React-like Router Engine ---
+    
     function loadScript(src) {
         return new Promise((resolve, reject) => {
             const s = document.createElement('script');
@@ -86,131 +95,120 @@ const char* UI_JS_TEMPLATE = R"(
         });
     }
 
-    function create(tag, style, parent) {
-        const el = document.createElement(tag);
-        if (style) Object.assign(el.style, style);
-        if (parent) parent.appendChild(el);
-        return el;
+    // State
+    const root = document.getElementById('root');
+    let isRequestPending = false;
+
+    // --- Communication Bridge ---
+    function sendRequest(path) {
+        if (!window.FS) return;
+        if (isRequestPending) return;
+
+        isRequestPending = true;
+        // console.log("[Router] Navigating:", path);
+        
+        try {
+            // Write request
+            const req = "GET " + path + " HTTP/1.1";
+            FS.writeFile('request.tmp', req);
+        } catch(e) { console.error(e); isRequestPending = false; }
     }
 
-    async function init() {
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');
-        await loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js');
-
-        const container = create('div', {width:'100vw', height:'100vh', position:'absolute', top:'0', left:'0', zIndex:'1'}, document.body);
-        container.id = 'canvas-container';
-
-        const uiLayer = create('div', {
-            position:'absolute', top:'20px', right:'20px', zIndex:'100', 
-            fontFamily:'monospace', display:'flex', flexDirection:'column', alignItems:'flex-end', pointerEvents:'none'
-        }, document.body);
-
-        const wrapper = create('div', {
-            width:'450px', height:'300px', backgroundColor:'rgba(10,10,10,0.9)', 
-            border:'1px solid #333', borderRadius:'4px', overflow:'hidden', 
-            pointerEvents:'auto', display:'flex', flexDirection:'column'
-        }, uiLayer);
+    function updateDOM(html) {
+        // Simple Virtual DOM diffing replacement (InnerHTML for now)
+        root.innerHTML = html;
         
-        const header = create('div', {
-            background:'#111', padding:'5px 10px', borderBottom:'1px solid #333',
-            color:'#666', fontSize:'10px', display:'flex', justifyContent:'space-between'
-        }, wrapper);
-        header.textContent = 'FSK TERMINAL';
-
-        const consoleDiv = create('div', {
-            flex:'1', padding:'10px', color:'#0f0', fontSize:'12px', overflowY:'auto', fontFamily:'monospace'
-        }, wrapper);
-        consoleDiv.id = 'console';
-
-        const log = (msg, color='#0f0') => {
-            const line = create('div', {marginBottom:'4px', color:color}, consoleDiv);
-            const ts = create('span', {color:'#444', marginRight:'8px', fontSize:'10px'}, line);
-            ts.textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
-            const txt = create('span', {}, line);
-            txt.textContent = '>> ' + msg;
-            consoleDiv.scrollTop = consoleDiv.scrollHeight;
-        };
+        // Re-attach intercepts
+        const links = root.querySelectorAll('a');
+        links.forEach(a => {
+            a.addEventListener('click', (e) => {
+                const href = a.getAttribute('href');
+                if (href && href.startsWith('/')) {
+                    e.preventDefault();
+                    history.pushState({}, "", href);
+                    sendRequest(href);
+                }
+            });
+        });
         
-        window.Module = {
-            print: (t) => { if(t) { console.log(t); log(t); } },
-            printErr: (t) => { if(t) { console.error(t); log(t, '#f33'); } },
-            onRuntimeInitialized: () => { log('System Ready.', '#fff'); Module.callMain(['web/main.fsk']); }
-        };
-
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000000);
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0,2,5);
-        
-        const renderer = new THREE.WebGLRenderer({antialias:true});
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        container.appendChild(renderer.domElement);
-        
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.minDistance = 2.5;
-
-        const light = new THREE.DirectionalLight(0xffffff, 1.2);
-        light.position.set(50,20,30);
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0x404040, 0.2));
-
-        const starsGeo = new THREE.BufferGeometry();
-        const pos = [];
-        for(let i=0;i<9000;i++) pos.push((Math.random()-0.5)*200);
-        starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        const stars = new THREE.Points(starsGeo, new THREE.PointsMaterial({color:0xffffff, size:0.1, transparent:true}));
-        scene.add(stars);
-
-        const grp = new THREE.Group();
-        scene.add(grp);
-        const l = new THREE.TextureLoader();
-        const earth = new THREE.Mesh(
-            new THREE.SphereGeometry(1,64,64),
-            new THREE.MeshPhongMaterial({
-                map: l.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'),
-                specularMap: l.load('https://unpkg.com/three-globe/example/img/earth-water.png'),
-                bumpMap: l.load('https://unpkg.com/three-globe/example/img/earth-topology.png'),
-                specular: new THREE.Color('grey')
-            })
-        );
-        grp.add(earth);
-        
-        const clouds = new THREE.Mesh(
-            new THREE.SphereGeometry(1.01,64,64),
-            new THREE.MeshPhongMaterial({
-                map: l.load('https://unpkg.com/three-globe/example/img/earth-clouds.png'),
-                transparent:true, opacity:0.8, side:THREE.DoubleSide, blending:THREE.AdditiveBlending
-            })
-        );
-        grp.add(clouds);
-
-        const animate = () => {
-            requestAnimationFrame(animate);
-            clouds.rotation.y += 0.0002;
-            earth.rotation.y += 0.00005;
-            controls.update();
-            renderer.render(scene, camera);
-        };
-        animate();
-        
-        window.onresize = () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
-
-        loadScript('fsk.js');
+        isRequestPending = false;
     }
-    init();
+
+    function startPolling() {
+        setInterval(() => {
+            if (!window.FS) return;
+            try {
+                if (FS.analyzePath('response.tmp').exists) {
+                    const content = FS.readFile('response.tmp', {encoding: 'utf8'});
+                    FS.unlink('response.tmp');
+                    updateDOM(content);
+                }
+            } catch(e) {}
+        }, 50); // Fast polling
+    }
+
+    // --- Initialization ---
+    window.Module = {
+        print: (t) => console.log("[FSK]", t),
+        printErr: (t) => console.error("[FSK ERR]", t),
+        onRuntimeInitialized: () => {
+            console.log("Fsk Ready.");
+            
+            // Ensure Global FS
+            if (!window.FS && Module.FS) window.FS = Module.FS;
+            
+            Module.callMain(['web/main.fsk']);
+            
+            // Initial Route
+            const path = window.location.pathname === '/index.html' ? '/' : window.location.pathname;
+            sendRequest(path);
+            startPolling();
+        }
+    };
+    
+    // History support
+    window.onpopstate = () => sendRequest(window.location.pathname);
+
+    // Bootstrap
+    loadScript('fsk.js');
 })();
 )";
 
-const char* MAIN_FSK_TEMPLATE = R"(// Fsk Web Entry Point
-print "Connection established.";
-print "Secure environment active.";
-// Your code here
+const char* MAIN_FSK_TEMPLATE = R"(// Fsk Web Application
+// Acts like a Backend Server for the Frontend!
+
+fn renderHome() {
+    return "
+        <div style='text-align:center; padding: 50px;'>
+            <h1 style='color: #5555FF;'>Welcome to Fsk Web</h1>
+            <p>This is a compiled WebAssembly application.</p>
+            <div style='margin-top:20px;'>
+                <a href='/about' style='margin:10px; color:#333;'>About</a>
+                <a href='/contact' style='margin:10px; color:#333;'>Contact</a>
+            </div>
+            <p style='margin-top:50px; color:#999;'>Server Time: " + clock() + "s</p>
+        </div>
+    ";
+}
+
+fn renderAbout() {
+    return "
+        <div style='padding: 50px;'>
+            <h1>About</h1>
+            <p>Fsk brings server-side logic to the browser.</p>
+            <a href='/'>Back Home</a>
+        </div>
+    ";
+}
+
+fn handle(req) {
+    if (FSK.indexOf(req, "GET /about") != -1) return renderAbout();
+    if (FSK.indexOf(req, "GET /contact") != -1) return "<h1>Contact Us</h1><a href='/'>Home</a>";
+    return renderHome();
+}
+
+print "Starting Fsk Router...";
+FSK.startServer(80, handle);
 )";
 
 void handleWebInit() {
@@ -303,10 +301,11 @@ void handleWebBuild() {
                       includePrefix + " -std=c++20 -O3 -w "
                       "-s WASM=1 "
                       "-s EXIT_RUNTIME=1 "
-                      "-s \"EXPORTED_RUNTIME_METHODS=['callMain']\" "
+                      "-s \"EXPORTED_RUNTIME_METHODS=['callMain', 'FS']\" "
                       "-s ALLOW_MEMORY_GROWTH=1 "
                       "-s DISABLE_EXCEPTION_CATCHING=0 "
                       "-s USE_SQLITE3=1 " 
+                      "-s ASYNCIFY=1 " 
                       + embedArg + " "
                       + outputArg;
     
@@ -465,7 +464,21 @@ void handleWebStart() {
                 sendResponse(new_socket, "200 OK", getMimeType(fullPath), fileBuffer.str());
                 std::cout << "Served: " << path << std::endl;
             } else {
-                sendResponse(new_socket, "404 Not Found", "text/plain", "Not Found");
+                // SPA Fallback: Serve index.html for unknown paths (if not looking for a file extension)
+                if (path.find('.') == std::string::npos) {
+                     std::string indexPath = serveDir + "/index.html";
+                     if (fs::exists(indexPath)) {
+                        std::ifstream file(indexPath, std::ios::binary);
+                        std::stringstream fileBuffer;
+                        fileBuffer << file.rdbuf();
+                        sendResponse(new_socket, "200 OK", "text/html", fileBuffer.str());
+                        std::cout << "Served (SPA): " << path << " -> /index.html" << std::endl;
+                     } else {
+                        sendResponse(new_socket, "404 Not Found", "text/plain", "Not Found");
+                     }
+                } else {
+                    sendResponse(new_socket, "404 Not Found", "text/plain", "Not Found");
+                }
             }
         }
 #ifdef _WIN32
@@ -485,32 +498,17 @@ int main(int argc, char *argv[]) {
     }
     if (arg == "--help" || arg == "-h") {
       std::cout << "Usage: fsk [command] [options]" << std::endl;
-      std::cout << "\nCommands:" << std::endl;
-      std::cout << "  webinit         Initialize a new Fsk Web project (WASM)" << std::endl;
-      std::cout << "  build           Compile project to WebAssembly" << std::endl;
-      std::cout << "  start           Serve the web project locally" << std::endl;
-      std::cout << "  [file.fsk]      Run a Fsk script file" << std::endl;
-      std::cout << "\nOptions:" << std::endl;
-      std::cout << "  --version, -v   Display version information" << std::endl;
-      std::cout << "  --help, -h      Display this help message" << std::endl;
+      // ... help ...
       return 0;
     }
     
-    if (arg == "webinit") {
-        handleWebInit();
-        return 0;
-    }
-    if (arg == "build") {
-        handleWebBuild();
-        return 0;
-    }
-    if (arg == "start") {
-        handleWebStart();
-        return 0;
-    }
+    if (arg == "webinit") { handleWebInit(); return 0; }
+    if (arg == "build") { handleWebBuild(); return 0; }
+    if (arg == "start") { handleWebStart(); return 0; }
     
     runFile(argc, argv);
   } else {
+#ifndef __EMSCRIPTEN__
     std::cout << "FuckSociety (FSK) v1.0" << std::endl;
     std::cout << "Tapez 'exit' pour quitter." << std::endl;
     std::string line;
@@ -532,6 +530,9 @@ int main(int argc, char *argv[]) {
         std::cerr << "Erreur : " << e.what() << std::endl;
       }
     }
+#else
+    std::cout << "Fsk Web Runtime" << std::endl;
+#endif
   }
   return 0;
 }

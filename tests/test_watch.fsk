@@ -1,0 +1,32 @@
+
+print "Watching current directory...";
+let id = FS.watch(".");
+
+if (id == -1) {
+    print "Failed to watch directory.";
+    exit(1);
+}
+
+print "Watcher ID: " + id;
+
+print "Creating file...";
+FS.write("temp_watch.txt", "hello");
+sleep(100); 
+
+print "Polling...";
+let events = FS.poll(id);
+print "Events: " + events;
+
+if (events.length > 0) {
+    print "SUCCESS: Detected file creation/mod.";
+} else {
+    print "FAILURE: No events detected.";
+}
+
+FS.delete("temp_watch.txt");
+sleep(100);
+events = FS.poll(id);
+print "Deletion Events: " + events;
+
+FS.unwatch(id);
+print "Unwatched.";

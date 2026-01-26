@@ -1,0 +1,30 @@
+
+print "Connecting to WebSocket...";
+let id = WS.connect("ws://echo.websocket.events/.ws");
+
+if (id == -1) {
+    print "Failed to connect (Network issue or offline).";
+} else {
+    print "Connected! ID: " + id;
+    
+    WS.send(id, "Hello from Fsk!");
+    
+    let messages = [];
+    let nothingCount = 0;
+    
+    while (nothingCount < 50) {
+        let new_msgs = WS.poll(id); 
+        
+        if (new_msgs.length > 0) {
+            messages = [...messages, ...new_msgs];
+            print "Received: " + new_msgs;
+            break;
+        }
+        
+        nothingCount = nothingCount + 1;
+        sleep(100);
+    }
+    
+    WS.close(id);
+    print "Closed.";
+}

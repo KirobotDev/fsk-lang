@@ -1,0 +1,21 @@
+print "Main Start";
+// Start the worker
+let w = Worker.init("../tests/worker_task.fsk");
+
+if (w.id == nil) {
+    print "Failed to create worker.";
+    exit(1);
+}
+
+print "Worker ID: " + w.id;
+
+w.postMessage("Hello");
+sleep(200);
+
+let replies = w.poll();
+print "Main Got: " + replies;
+
+w.postMessage("die");
+sleep(200);
+w.terminate();
+print "Main End";

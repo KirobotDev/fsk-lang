@@ -1,0 +1,15 @@
+
+print "Worker Started";
+let running = true;
+while(running) {
+   let msgs = workerPoll();
+   if (msgs.length > 0) {
+      print "Worker Got: " + msgs[0];
+      workerPostMessage("RE: " + msgs[0]);
+      if (msgs[0] == "die") {
+          running = false;
+      }
+   }
+   sleep(50);
+}
+print "Worker Dying";

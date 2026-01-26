@@ -1,0 +1,24 @@
+
+let msg = "Hello Fsk!";
+
+print "Original: " + msg;
+
+let sha = Crypto.sha256(msg);
+print "SHA256: " + sha;
+
+let md5 = Crypto.md5(msg);
+print "MD5:    " + md5;
+
+let b64 = Crypto.base64Encode(msg);
+print "Base64: " + b64;
+
+let decoded = Crypto.base64Decode(b64);
+print "Decoded: " + decoded;
+
+if (msg == decoded) {
+    print "SUCCESS: Decoding matches original.";
+} else {
+    print "FAILURE: Decoding mismatch.";
+}
+
+"chained" |> Crypto.sha256 |> print;

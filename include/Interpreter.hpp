@@ -7,6 +7,8 @@
 #include "Stmt.hpp"
 #include <memory>
 #include <vector>
+#include <thread>
+#include "Utils.hpp"
 
 class Interpreter : public ExprVisitor, public StmtVisitor {
 public:
@@ -69,4 +71,27 @@ private:
   void execute(std::shared_ptr<Stmt> stmt);
   bool isTruthy(Value value);
   bool isEqual(Value a, Value b);
+
+public:
+  int dbIdCounter = 1;
+  std::map<int, void*> databases; 
+
+  int wsIdCounter = 1;
+  std::map<int, std::shared_ptr<void>> sockets;
+
+  int fsWatcherId = 1;
+  std::map<int, int> fsWatchers;
+
+  struct WorkerResource {
+      std::shared_ptr<std::thread> thread;
+      std::shared_ptr<ThreadSafeQueue<std::string>> incoming; 
+      std::shared_ptr<ThreadSafeQueue<std::string>> outgoing; 
+  };
+  
+  int workerIdCounter = 1;
+  std::map<int, std::shared_ptr<WorkerResource>> workers;
+  
+  bool isWorker = false;
+  std::shared_ptr<ThreadSafeQueue<std::string>> workerIncoming;
+  std::shared_ptr<ThreadSafeQueue<std::string>> workerOutgoing;
 };

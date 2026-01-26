@@ -1,0 +1,20 @@
+
+print "Main Start";
+FS.write("async_job.fsk", "print 'Job Working...'; sleep(500); workerPostMessage('Job Done');");
+
+print "Starting Async Task...";
+let task = Task.run("async_job.fsk");
+
+if (task == nil) {
+    print "Task failed to start.";
+    exit(1);
+}
+
+print "Task Running. Awaiting result...";
+
+let result = await task;
+
+print "Async Result: " + result;
+
+FS.delete("async_job.fsk");
+print "Main End";
