@@ -17,16 +17,17 @@
 #define popen _popen
 #define pclose _pclose
 #else
+#ifndef __EMSCRIPTEN__
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#ifndef __EMSCRIPTEN__
 #include <sys/inotify.h>
+#include <fcntl.h>
 #else
 #include <emscripten.h>
+#include <unistd.h> 
 #endif
-#include <fcntl.h>
 #endif
 #include <sstream> 
 #include <sqlite3.h>
