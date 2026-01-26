@@ -301,10 +301,12 @@ void handleWebBuild() {
     std::string cmd = cmdPrefix + "emcc " + srcPrefix + "src/main.cpp " + srcPrefix + "src/lexer/Lexer.cpp " + srcPrefix + "src/parser/Parser.cpp " + srcPrefix + "src/runtime/Interpreter.cpp " + srcPrefix + "src/runtime/Callable.cpp " +
                       includePrefix + " -std=c++20 -O3 -w "
                       "-s WASM=1 "
+                      "-s SINGLE_FILE=1 "
                       "-s ENVIRONMENT=web "
                       "-s EXIT_RUNTIME=1 "
                       "-s EXPORTED_RUNTIME_METHODS=callMain,FS,UTF8ToString,stringToUTF8 "
                       "-s ALLOW_MEMORY_GROWTH=1 "
+                      "-s FORCE_FILESYSTEM=1 "
                       "-s DISABLE_EXCEPTION_CATCHING=0 "
                       "-s USE_SQLITE3=1 " 
                       "-s ASYNCIFY=1 " 
