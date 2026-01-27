@@ -31,6 +31,23 @@ cmake_install.cmake
 Makefile
 
 #############################
+# Rust / Cargo              #
+#############################
+
+fsk-core/target/
+fsk-core/Cargo.lock
+
+#############################
+# Logs & Debug              #
+#############################
+
+*.log
+debug.log
+server.log
+ws_server.log
+fsk_rust.db
+
+#############################
 # system Fichier            #
 #############################
 
