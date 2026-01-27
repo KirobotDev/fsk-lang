@@ -34,7 +34,9 @@ make
 ```
 
 ### Windows Build
-For detailed instructions on building Fsk on Windows (including Rust setup), please see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md).
+[![Windows Build Guide](https://img.shields.io/badge/Windows-Build_Guide-blue?style=for-the-badge&logo=windows)](./WINDOWS_BUILD.md)
+
+For detailed instructions on building Fsk on Windows (including Rust setup), please click the button above.
 
 ## Global Installation (System-wide)
 
