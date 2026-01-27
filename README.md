@@ -1,32 +1,29 @@
-# Fsk Language
+# Fsk Language (Perfect Edition)
 
 # Website docs https://fsk.kirosb.fr
 
 # FPM Gestionary package Website https://fpm.kirosb.fr
 
-A custom interpreted programming language written in C++.
+A high-performance hybrid **C++/Rust** interpreted programming language.
 
-## Features
+## 💎 Beta Édition Features
 
-- **Dynamic Typing**: Variables can hold any type of value.
-- **Functions**: First-class functions with closures.
-- **Classes**: Object-oriented programming with classes and inheritance.
-- **Standard Library**: Built-in `FSK` object for system utilities.
-- **Import System**: Modularize code with `import`.
+- **Hybrid Core**: Critical modules (Crypto, SQL, System, Http) are written in **Rust** for maximum performance and safety.
+- **Bytecode VM**: Now runs on a register-based Virtual Machine (Rust) instead of slow AST interpretation.
+- **Production Web Server**: Built-in HTTP server powered by **Axum** & **Tokio**. Supports WebSockets out of the box.
+- **Modern Syntax**: Arrow functions `=>`, Async/Await, Destructuring, Optional Chaining `?.`.
 
 ## Build
 
 Requirements:
 - CMake 3.10+
-- C++ Compiler (C++17 recommended)
+- C++ Compiler (C++17)
+- Rust (Cargo)
 - Dependencies: `libsqlite3-dev`, `libssl-dev`, `libcurl4-openssl-dev`, `libstdc++`, `libgcc`
-
-> [!NOTE]
-> **Core Runtime Libraries**: Fsk requires `libstdc++` and `libgcc` to be present on the system (both Linux and Windows). These are usually installed by default with `g++` or `build-essential` on Linux and `MinGW-w64` on Windows.
 
 To install dependencies on Debian/Ubuntu:
 ```bash
-sudo apt install -y git cmake g++ make libsqlite3-dev libssl-dev libcurl4-openssl-dev
+sudo apt install -y git cmake g++ make libsqlite3-dev libssl-dev libcurl4-openssl-dev cargo
 ```
 
 ```bash
@@ -37,175 +34,67 @@ make
 ```
 
 ### Windows Build
-For detailed instructions on building Fsk on Windows, please see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md).
-
-#### Building for Windows on Linux (Cross-Compilation)
-If you are on Linux and want to generate a `.exe` for Windows users:
-1. Ensure you have `mingw-w64` and `vcpkg` installed.
-2. Run `./build_windows.sh`.
-3. The resulting `fsk.exe` and a distribution `fsk_windows.zip` will be generated.
+For detailed instructions on building Fsk on Windows (including Rust setup), please see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md).
 
 ## Global Installation (System-wide)
 
-After building, you can install Fsk and FPM system-wide to run `fsk` and `fpm` from any directory.
-
-### Linux Installation
-```bash 
+### Linux
+```bash
 sudo mkdir -p /usr/local/lib/fsk/
 sudo cp -r std /usr/local/lib/fsk/
 sudo cp build/fsk /usr/local/bin/
-
-sudo cp -r fpm /usr/local/lib/fsk/
-echo '#!/bin/bash' | sudo tee /usr/local/bin/fpm
-echo 'fsk /usr/local/lib/fsk/fpm/fpm.fsk "$@"' | sudo tee -a /usr/local/bin/fpm
-sudo chmod +x /usr/local/bin/fpm
 ```
 
-### Windows Installation (One-Click Installer)
-The easiest way to install Fsk on Windows is to build the installer:
-1. Ensure you have [Inno Setup](https://jrsoftware.org/isinfo.php) installed.
-2. Run `package.bat` as Administrator.
-3. Once finished, run `fsk_setup.exe` from the `Output` folder.
-
-This will automatically:
-- Install Fsk and its standard library.
-- Add Fsk to your system `PATH`.
-- Associate `.fsk` files with the interpreter (double-click to run!).
-
-> [!IMPORTANT]
-> **Windows Dependencies**: If you are installing manually or using a portable version, ensure you have `libstdc++` and `libgcc` installed (usually provided by MinGW-w64). If you see missing DLL errors, you need to add these libraries to your system.
-
-### Manual Windows Installation (PowerShell)
-
-## Pterodactyl Installation (Hosting)
-
-Fsk provides an official "Egg" for Pterodactyl panels, allowing you to host Fsk applications easily with automated installation.
-
-1. Download the [egg-fsk-language.json](egg-fsk-language.json) file from this repository.
-2. Go to your Pterodactyl Admin Panel > **Nests** > **Import Egg**.
-3. Select the `egg-fsk-language.json` file and import it.
-4. Create a new server using this Egg.
-   - The Egg will automatically compile Fsk and set up the environment.
-   - You can specify your startup file (default: `docs/server.fsk`).
+### Windows (One-Click Installer)
+The recommended way for users.
+1. Build the project using `WINDOWS_BUILD.md`.
+2. Run `package.bat` (requires Inno Setup).
+3. The installer `fsk_setup.exe` will be in the `Output` folder.
 
 ## Usage
 
 Run a script:
 ```bash
-./fsk script.fsk
+fsk script.fsk
 ```
 
 Interactive mode (REPL):
 ```bash
-./fsk
+fsk
 ```
 
-## Syntax Example
+## Production Web Server (std/http)
+
+Fsk includes a high-level web framework inspired by Express.js:
 
 ```javascript
-import "lib.fsk";
+import "http";
 
-class Greeter {
-  fn init(name) {
-    this.name = name;
-  }
+const app = new http.Server();
 
-  fn greet() {
-    print "Hello, " + this.name + "!";
-  }
-}
+app.get("/", (req, res) => {
+    res.send("<h1>Hello from Fsk Perfect Edition!</h1>");
+});
 
-let g = Greeter("World");
-g.greet();
+app.get("/json", (req, res) => {
+    res.json(["Apple", "Banana", "Cherry"]);
+});
 
-print "Random: " + FSK.random(1, 100);
+print "Server running on port 8080";
+app.listen(8080);
 ```
 
-## Standard Library (FSK)
+## Standard Library (Rust-Powered)
 
-- `FSK.random(min, max)`: Returns a random number between min and max.
-- `FSK.exec(command)`: Executes a shell command.
-- `FSK.version()`: Returns the current version.
-- `FSK.sleep(ms)`: Pauses execution for `ms` milliseconds.
+- **Crypto**: SHA256, MD5, Base64 (via `ring` crate).
+- **SQL**: SQLite3 engine (via `rusqlite`).
+- **System**: Device information (via `sysinfo`).
+- **VM**: Register-based bytecode execution.
 
-## Self-Hosted Standard Library (std/)
+## Documentation
 
-Fsk comes with a standard library written in Fsk itself, located in the `std/` directory. It is automatically loaded on startup.
-
-### List
-A linked list implementation.
-```javascript
-let list = List();
-list.push(10);
-list.push(20);
-list.map(fn(x) { return x * 2; }).forEach(fn(x) { print x; });
-```
-
-### Math
-Math utilities.
-```javascript
-print Math.max(10, 20); // 20
-print Math.pow(2, 3); // 8
-```
-
-## Web Development (WebAssembly)
-
-Fsk allows you to compile your code to WebAssembly (WASM) and run it in the browser with a high-performance 3D engine.
-
-### 1. Initialize a Web Project
-Run this command to create a new `web/` folder with a modern project structure:
+Run the built-in documentation server:
 ```bash
-fsk webinit
+fsk docs/server.fsk
 ```
-This generates:
-- `web/ui.js`: Handles 3D rendering and UI logic (Clean Architecture).
-- `web/index.html`: Minimal entry point.
-- `web/main.fsk`: Your main Fsk logic.
-
-### 2. Build for Web
-Compile your Fsk code to WASM:
-```bash
-fsk build
-```
-This requires [Emscripten](https://emscripten.org/) installed globally or locally in `emsdk/`.
-*Note: You can run this command from the project root OR directly inside the `web/` folder.*
-
-### 3. Start Local Server
-Launch the native C++ web server to test your app:
-```bash
-fsk start
-```
-Open `http://localhost:8080`.
-
-## Web Server
-
-Fsk includes a native HTTP server! You can run the self-hosted documentation:
-
-```bash
-./build/fsk docs/server.fsk
-```
-
-Visit `https://fsk.kirosb.fr` to see the documentation served by Fsk itself.
-
-### Example Server
-
-```javascript
-fn handler(req) {
-  return "<h1>Hello from Fsk!</h1>";
-}
-
-FSK.startServer(3000, handler);
-```
-
-
-
-
-
-## Anonymous Functions (Lambdas)
-
-Fsk supports anonymous functions, useful for callbacks and functional programming.
-
-```javascript
-let double = fn(x) { return x * 2; };
-print double(5); // 10
-```
+Then open `http://localhost:8092`.

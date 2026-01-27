@@ -29,16 +29,30 @@ The easiest way to manage dependencies on Windows is using `vcpkg`.
     .\vcpkg install sqlite3:x64-windows openssl:x64-windows curl:x64-windows
     ```
 
+### 4. Install Rust (Required)
+Fsk "Perfect Edition" requires Rust for the core modules.
+1. Download **rustup-init.exe** from [rustup.rs](https://rustup.rs/).
+2. Run the installer and follow the default instructions.
+3. Open a new terminal and verify with `cargo --version`.
+
 ## Building the Project
 
 Once the prerequisites are installed, you can build the project:
 
-1.  Open a **Developer Command Prompt for VS 2022** (search for it in the Start menu).
+1.  Open a **Developer Command Prompt for VS 2022**.
 2.  Navigate to your `fsk-lang` directory:
     ```cmd
     cd C:\fsk-lang
     ```
-3.  Create a build directory and configure the project:
+
+3.  Build the Rust Core:
+    ```cmd
+    cd fsk-core
+    cargo build --release
+    cd ..
+    ```
+
+4.  Configure CMake:
     ```cmd
     mkdir build
     cd build
@@ -46,17 +60,9 @@ Once the prerequisites are installed, you can build the project:
     ```
     *(Replace `C:/path/to/vcpkg/` with the actual path where you installed vcpkg)*
 
-4.  Build the executable:
+5.  Build the executable:
     ```cmd
     cmake --build . --config Release
     ```
 
 The compiled `fsk.exe` will be located in `build\Release\`.
-
-## Troubleshooting
-
-### 'cmake' is not recognized
-Ensure CMake is in your system PATH. You can check this by typing `cmake --version` in a new terminal window. If it fails, add the directory containing `cmake.exe` (usually `C:\Program Files\CMake\bin`) to your environment variables.
-
-### Missing Libraries
-If CMake fails to find SQLite3, OpenSSL, or CURL, double-check the `-DCMAKE_TOOLCHAIN_FILE` path in the configuration step.

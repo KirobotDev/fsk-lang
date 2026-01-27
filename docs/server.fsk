@@ -661,29 +661,50 @@ fn pageNetworking(sidebar) {
       <div class='doc-container'>
           " + sidebar + "
           <main class='content'>
-              <h1>Networking & Web</h1>
+              <h1>Networking & Web (New)</h1>
+              <p>Fsk includes a production-grade HTTP server powered by Rust (Axum/Tokio) and a high-level framework via <code>std/http</code>.</p>
               
-              <h2>Client: FSK.fetch</h2>
-              <p>Download content from any HTTP URL. This is a blocking call that returns the source code of the page.</p>
+              <h2>1. The std/http Module</h2>
+              <p>The standard way to build web applications. Inspired by Express.js.</p>
               <pre>
-let source = FSK.fetch('https://google.com');
-print 'Fetched ' + source.length + ' bytes.';
-writeFile('downloaded.html', source);
+import 'http';
+const app = new http.Server();
+
+// Handle GET requests
+app.get('/', fn(req, res) {
+    res.send('<h1>Welcome to Fsk Web!</h1>');
+});
+
+// Handle POST requests
+app.get('/submit', fn(req, res) {
+    print 'Received data: ' + req.body;
+    res.send('Data received');
+});
+
+// Start the server
+print 'Listening on http://localhost:8080';
+app.listen(8080);
               </pre>
 
-              <h2>Server: FSK.startServer</h2>
-              <p>Create a highly efficient web server. The second argument is a handler function that receives the raw request string and must return a valid HTTP response.</p>
+              <h2>2. Low-Level API (FSK.listen)</h2>
+              <p>Direct access to the Rust HTTP server event loop. Extremely fast.</p>
               <pre>
-fn myHandler(request) {
-    print 'Received request!';
-    if (FSK.indexOf(request, 'GET / ') != -1) {
-        return 'HTTP/1.1 200 OK&#92;nContent-Type: text/html&#92;n&#92;n<h1>Fsk Server</h1>';
-    }
-    return 'HTTP/1.1 404 Not Found&#92;n&#92;nPage not found.';
-}
+FSK.listen(3000, fn(req) {
+     print 'Method: ' + req.method;
+     print 'Path: ' + req.path;
+     req.send('Hello from Rust Core');
+});
+              </pre>
 
-print 'Server starting on port 8080...';
-FSK.startServer(8080, myHandler);
+              <h2>3. Client: FSK.fetch (Async)</h2>
+              <p>Non-blocking HTTP client.</p>
+              <pre>
+print 'Fetching...';
+FSK.fetch('https://httpbin.org/get').then(fn(res) {
+    print 'Status: ' + res.status;
+    print 'Body: ' + res.body;
+});
+print 'This prints immediately thanks to async!';
               </pre>
           </main>
       </div>", false);
@@ -758,15 +779,13 @@ sudo cp fsk /usr/local/bin/
               </pre>
 
               <h2>2. Core Dependencies</h2>
-              <p>Fsk requires the following runtime libraries to be installed on your system (Linux & Windows):</p>
+              <p>Fsk is a hybrid C++/Rust application. You need standard build tools:</p>
               <ul>
-                <li><code>libstdc++</code></li>
-                <li><code>libgcc</code></li>
-                <li><code>libsqlite3</code></li>
-                <li><code>libssl</code></li>
-                <li><code>libcurl</code></li>
+                <li><code>cmake</code>, <code>make</code>, <code>gcc/g++</code></li>
+                <li><code>cargo</code> (Rust Compiler)</li>
+                <li><code>libsqlite3-dev</code></li>
+                <li><code>libssl-dev</code></li>
               </ul>
-              <p>On Linux, these are typically provided by <code>build-essential</code> or <code>gcc</code>. On Windows, they are included with <code>MinGW-w64</code>.</p>
 
               <h2>3. Windows Installation</h2>
               <p>For Windows users, we recommend using the automated installer or manual setup.</p>
@@ -933,6 +952,37 @@ fpm run          // Execute entry point defined in fpm.json
 }
 
 
+fn pageVM(sidebar) {
+    return renderPage("Virtual Machine", "
+        <div class='doc-container'>
+            " + sidebar + "
+            <main class='content'>
+                <h1>Virtual Machine (Bytecode)</h1>
+                <p>Fsk now runs on a high-performance, register-based Virtual Machine written in Rust. This replaces the old AST interpreter for critical paths.</p>
+                
+                <h2>How it works</h2>
+                <p>Instead of walking the syntax tree, Fsk compiles your code into a compact bytecode format. This bytecode is then executed by the VM loop, which is optimized for CPU cache efficiency.</p>
+
+                <h2>Manual Bytecode Execution</h2>
+                <p>You can even execute raw bytecode manually if you're feeling adventurous!</p>
+                <pre>
+// Opcodes: LOAD_CONST=0, ADD=1, PRINT=5, HALT=255
+let bytecode = [
+    0, 0, 0, // LOAD_CONST R0, ConstIdx 0 (10)
+    0, 1, 1, // LOAD_CONST R1, ConstIdx 1 (20)
+    1, 2, 0, 1, // ADD R2, R0, R1 (10 + 20)
+    5, 2,    // PRINT R2
+    255      // HALT
+];
+let constants = [10.0, 20.0];
+
+print 'Starting VM...';
+VM.run(bytecode, constants); // Output: 30
+                </pre>
+            </main>
+        </div>", false);
+}
+
 fn pageWebWASM(sidebar) {
     return renderPage("WebAssembly 3D", "
       <div class='doc-container'>
@@ -983,7 +1033,7 @@ fn pageHome() {
         <div class='hero'>
             <div class='hero-box'>
                 <h1 style='font-size:6rem;'>FSK</h1>
-                <p>Divine Intellect Operating Language</p>
+                <p style='font-size:1.5rem; color:#FFFF55;'><b>PERFECT EDITION</b></p>
                 <a href='#repl-section' class='cta-btn'>ENTER CODE</a>
             </div>
         </div>
@@ -996,13 +1046,16 @@ fn pageHome() {
                  <div class='editor-wrapper'>
                        <pre id='editor-highlight' class='editor-layer'></pre>
                        <textarea id='editor-input' class='editor-layer' spellcheck='false'>
-print 'Welcome to Fsk';
+import \"http\";
 
-fn salute() {
-    print 'Hello Divine Mind';
-}
+const app = new http.Server();
 
-salute();</textarea>
+app.get(\"/\", (req, res) => {
+    res.send(\"Hello from Fsk Perfect Edition!\");
+});
+
+print \"Server running on high-performance Rust core.\";
+app.listen(8080);</textarea>
                  </div>
                  <div id='repl-output' style='background:black; color:cyan; padding:10px; font-family:monospace; min-height:100px; border-top:4px solid white;'>OUTPUT AWAITING...</div>
             </div>
@@ -1016,29 +1069,25 @@ fn pageSQL(sidebar) {
       <div class='doc-container'>
         " + sidebar + "
         <main class='content'>
-            <h1>SQL Module (SQLite3)</h1>
-            <p>Fsk includes a built-in SQLite3 engine for powerful local database management.</p>
-            <h2>Opening a Database</h2>
+            <h1>SQL Module (Rust SQLite)</h1>
+            <p>Fsk includes a high-performance SQLite engine powered by the <b>Rusqlite</b> Rust crate.</p>
+            <h2>std/sql (Recommended)</h2>
             <pre>
-let db = SQL.open('my_database.db');
-if (db == -1) {
-    print 'Failed to open database';
-} else {
-    print 'Database opened with ID: ' + db;
-}
+import 'sql';
+let db = new sql.Database('app.db');
+
+db.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)');
+db.execute(\"INSERT INTO users (name) VALUES ('Kiro')\");
+
+let rows = db.query('SELECT * FROM users');
+print JSON.stringify(rows);
             </pre>
-            <h2>Executing Commands (No Return)</h2>
+
+            <h2>Low-Level (SQL Global)</h2>
             <pre>
-SQL.exec(db, 'CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)');
-SQL.exec(db, \"INSERT INTO users (name) VALUES ('Kiro')\");
-            </pre>
-            <h2>Querying Data</h2>
-            <pre>
-let rows = SQL.query(db, 'SELECT * FROM users');
-print 'Found ' + rows.length + ' users.';
-for (let i = 0; i < rows.length; i = i + 1) {
-    print 'User: ' + rows[i].name;
-}
+let id = SQL.open('app.db');
+let resultString = SQL.query(id, 'SELECT * FROM users');
+print resultString;
             </pre>
         </main>
       </div>", false);
@@ -1224,19 +1273,22 @@ fn pageCrypto(sidebar) {
       <div class='doc-container'>
         " + sidebar + "
         <main class='content'>
-            <h1>Crypto Module</h1>
-            <p>Secure hashing and encryption utilities.</p>
+            <h1>Crypto Module (Rust)</h1>
+            <p>Secure hashing and encryption utilities powered by the <b>Ring</b> Rust crate. High performance and secure.</p>
             
             <h2>Hashing</h2>
             <pre>
 let hash = Crypto.sha256('mytopsecretpassword');
-print hash;
+print hash; // 5e8848...
             </pre>
 
-            <h2>Hex Encoding</h2>
+            <h2>Encoding</h2>
             <pre>
-let encoded = Crypto.toHex('Hello');
-print encoded; 
+let b64 = Crypto.base64Encode('Hello World');
+print b64; // SGVsbG8gV29ybGQ=
+
+let raw = Crypto.base64Decode(b64);
+print raw; // Hello World
             </pre>
         </main>
       </div>", false);
@@ -1271,7 +1323,7 @@ while (true) {
       </div>", false);
 }
 
-fn handleRequest(req) {
+fn router(req) {
   let sidebar = "
     <aside class='sidebar'>
         <h3><span>🚀</span> START HERE</h3>
@@ -1284,14 +1336,16 @@ fn handleRequest(req) {
             <li><a href='/syntax'>SYNTAX</a></li>
             <li><a href='/modern'>MODERN SYNTAX ✨</a></li>
             <li><a href='/concurrency'>CONCURRENCY ⚡</a></li>
+            <li><a href='/vm'>VIRTUAL MACHINE ⚙️</a></li>
         </ul>
         <h3><span>📦</span> MODULES</h3>
         <ul>
             <li><a href='/list'>List</a></li>
             <li><a href='/math'>Math</a></li>
             <li><a href='/io'>File I/O</a></li>
-            <li><a href='/fs'>FileSystem (New)</a></li>
-            <li><a href='/server'>Web Server</a></li>
+            <li><a href='/fs'>FileSystem</a></li>
+            <li><a href='/server'>server (Legacy)</a></li>
+            <li><a href='/networking'>std/http (New)</a></li>
             <li><a href='/websockets'>WebSockets 🌐</a></li>
             <li><a href='/http'>HTTP Client</a></li>
             <li><a href='/crypto'>Crypto 🔒</a></li>
@@ -1301,7 +1355,6 @@ fn handleRequest(req) {
             <li><a href='/json'>JSON</a></li>
             <li><a href='/sql'>SQL (SQLite)</a></li>
             <li><a href='/console'>Console (TUI)</a></li>
-            <li><a href='/networking'>Networking</a></li>
             <li><a href='/webwasm'>WebAssembly 3D</a></li>
             <li><a href='/fpm'>Packages (FPM)</a></li>
             <li><a href='/globals'>Globals</a></li>
@@ -1310,66 +1363,64 @@ fn handleRequest(req) {
     </aside>
   ";
 
-  if (FSK.indexOf(req, "POST /api/run") != -1) {
-     let pos = FSK.indexOf(req, "\r\n\r\n");
-     // Hack: browser send doesn't strictly follow RAW HTTP in my mock.
-     // My mock writes raw body?
-     // Actually I should verify what UI sends.
-     // UI sends: "POST /api/run HTTP/1.1\r\n...\r\n\r\nBODY"
-     // So robust checking needed.
-     let code = "";
-      if (pos == -1) {
-          pos = FSK.indexOf(req, "\n\n"); 
-          if (pos != -1) { code = FSK.substr(req, pos + 2, 10000); }
-      } else { code = FSK.substr(req, pos + 4, 10000); }
-      print "SERVER: Body length: " + code.length;
-      print "SERVER: Body length: " + code.length;
+  // New Request Object API (Rust Core)
+  // req.method = "GET"
+  // req.path = "/url"
+  // req.body = "..."
+
+  if (req.method == "POST" and req.path == "/api/run") {
+      let code = req.body;
       
-      // WASM limitation: cannot run shell commands
-      // return "Execution Simulated (WASM Sandbox):\n" + code;
+      print "SERVER: Running Code of length: " + code.length;
       
-      // Simple mock evaluation for demo
       if (FSK.indexOf(code, "print") != -1) {
           return "OUTPUT:\n" + FSK.substr(code, FSK.indexOf(code, "print") + 6, code.length); 
       }
       return "Executed (Mock Mode).\nUse native Fsk for real execution.";
   } 
 
-  if (FSK.indexOf(req, "GET /tutorial ") != -1) return pageTutorial(sidebar);
-  if (FSK.indexOf(req, "GET /syntax ") != -1) return pageSyntax(sidebar);
-  if (FSK.indexOf(req, "GET /modern ") != -1) return pageModernSyntax(sidebar);
-  if (FSK.indexOf(req, "GET /concurrency ") != -1) return pageConcurrency(sidebar);
-  if (FSK.indexOf(req, "GET /arrays ") != -1) return pageArrays(sidebar);
-  if (FSK.indexOf(req, "GET /json ") != -1) return pageJSON(sidebar);
-  if (FSK.indexOf(req, "GET /networking ") != -1) return pageNetworking(sidebar);
-  if (FSK.indexOf(req, "GET /websockets ") != -1) return pageWebSockets(sidebar);
-  if (FSK.indexOf(req, "GET /crypto ") != -1) return pageCrypto(sidebar);
-  if (FSK.indexOf(req, "GET /cookbook ") != -1) return pageCookbook(sidebar);
-  if (FSK.indexOf(req, "GET /installation ") != -1) return pageInstallation(sidebar);
-  if (FSK.indexOf(req, "GET /globals ") != -1) return pageGlobals(sidebar);
-  if (FSK.indexOf(req, "GET /list ") != -1) return pageList(sidebar);
-  if (FSK.indexOf(req, "GET /math ") != -1) return pageMath(sidebar);
-  if (FSK.indexOf(req, "GET /io ") != -1) return pageIO(sidebar);
-  if (FSK.indexOf(req, "GET /server ") != -1) return pageServer(sidebar);
-  if (FSK.indexOf(req, "GET /fpm ") != -1) return pageFPM(sidebar);
-  if (FSK.indexOf(req, "GET / ") != -1) return pageHome();
-  
-  // Use helper functions for complex pages
-  if (FSK.indexOf(req, "GET /sql ") != -1) return pageSQL(sidebar);
-  if (FSK.indexOf(req, "GET /http ") != -1) return pageHTTP(sidebar);
-  if (FSK.indexOf(req, "GET /regex ") != -1) return pageRegex(sidebar);
-  if (FSK.indexOf(req, "GET /fs ") != -1) return pageFS(sidebar);
-  if (FSK.indexOf(req, "GET /date ") != -1) return pageDate(sidebar);
-  if (FSK.indexOf(req, "GET /console ") != -1) return pageConsole(sidebar);
-  if (FSK.indexOf(req, "GET /webwasm ") != -1) return pageWebWASM(sidebar);
+  if (req.method == "GET") {
+      if (req.path == "/tutorial") return pageTutorial(sidebar);
+      if (req.path == "/syntax") return pageSyntax(sidebar);
+      if (req.path == "/modern") return pageModernSyntax(sidebar);
+      if (req.path == "/concurrency") return pageConcurrency(sidebar);
+      if (req.path == "/arrays") return pageArrays(sidebar);
+      if (req.path == "/json") return pageJSON(sidebar);
+      if (req.path == "/networking") return pageNetworking(sidebar);
+      if (req.path == "/websockets") return pageWebSockets(sidebar);
+      if (req.path == "/crypto") return pageCrypto(sidebar);
+      if (req.path == "/cookbook") return pageCookbook(sidebar);
+      if (req.path == "/installation") return pageInstallation(sidebar);
+      if (req.path == "/globals") return pageGlobals(sidebar);
+      if (req.path == "/list") return pageList(sidebar);
+      if (req.path == "/math") return pageMath(sidebar);
+      if (req.path == "/io") return pageIO(sidebar);
+      if (req.path == "/server") return pageServer(sidebar);
+      if (req.path == "/fpm") return pageFPM(sidebar);
+      if (req.path == "/") return pageHome();
+      
+      if (req.path == "/sql") return pageSQL(sidebar);
+      if (req.path == "/http") return pageHTTP(sidebar);
+      if (req.path == "/regex") return pageRegex(sidebar);
+      if (req.path == "/fs") return pageFS(sidebar);
+      if (req.path == "/date") return pageDate(sidebar);
+      if (req.path == "/console") return pageConsole(sidebar);
+      if (req.path == "/webwasm") return pageWebWASM(sidebar);
+      if (req.path == "/vm") return pageVM(sidebar);
+  }
   
   return renderPage("404", "<h1>404</h1>", false);
 
 }
 
+fn handleRequest(req) {
+     let content = router(req);
+     req.send(content);
+}
+
 print "Attempting to start on port 8092...";
 try {
-    FSK.startServer(8092, handleRequest);
+    FSK.listen(8092, handleRequest);
 } catch (e) {
     print "CRITICAL ERROR STARTING SERVER: " + e;
 }
