@@ -1,0 +1,36 @@
+print "--- Fsk Final Push: Perfect Edition Verification ---";
+
+print "\n1. Testing Crypto (Rust SHA256/MD5):";
+let sha = Crypto.sha256("Fsk Perfect Edition");
+let md5 = Crypto.md5("Fsk Perfect Edition");
+print "SHA256: " + sha;
+print "MD5: " + md5;
+
+print "\n2. Testing SQL (Rust SQLite):";
+let db = SQL.open("fsk_rust.db");
+print "DB Opened, ID: " + db;
+SQL.query(db, "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT)");
+SQL.query(db, "INSERT INTO test (name) VALUES ('Rust-powered SQL')");
+let rows = SQL.query(db, "SELECT * FROM test");
+print "Rows from DB:";
+print JSON.stringify(rows);
+
+print "\n3. Testing System (Rust sysinfo):";
+let sysInfo = System.getInfo();
+print "System Info:";
+print JSON.stringify(sysInfo);
+
+print "\n4. Testing Bytecode VM (Rust core):";
+let bytecode = [
+    0, 0, 0, 
+    0, 1, 1, 
+    1, 2, 0, 1, 
+    5, 2,    
+    255      
+];
+let constants = [10.0, 20.0];
+print "Starting VM execution...";
+VM.run(bytecode, constants);
+print "VM Execution Finished.";
+
+print "\n--- All Systems Operational! ---";

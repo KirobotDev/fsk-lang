@@ -1,0 +1,18 @@
+class Database {
+    init(path) {
+        this.id = SQL.open(path);
+        if (this.id == 0) {
+            throw "Could not open database at: " + path;
+        }
+    }
+
+    query(sql) {
+        return SQL.query(this.id, sql);
+    }
+
+    execute(sql) {
+        return SQL.query(this.id, sql);
+    }
+}
+
+export default { Database };

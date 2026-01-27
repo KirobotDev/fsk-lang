@@ -1,0 +1,12 @@
+import "http";
+
+const app = new http.Server();
+
+app.get("/", (req, res) => {
+    print "[PROD] Request for /";
+    res.send("<h1>Fsk Perfect Edition</h1><p>Running on high-performance Rust core with axum/tokio.</p>");
+});
+
+app.listen(8081, () => {
+    print "Production Server listening on http://localhost:8081";
+});

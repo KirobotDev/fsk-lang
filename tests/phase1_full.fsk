@@ -1,0 +1,29 @@
+let sq = x => x * x;
+print "Square 9: " + sq(9); 
+
+let sum = (a, b) => a + b;
+print "Sum 10, 20: " + sum(10, 20); 
+
+fn info(name, age = "inconnu") {
+    print name + " a " + age + " ans.";
+}
+info("Sion"); 
+info("Sion", 25); 
+
+let [first, ...others] = [10, 20, 30, 40];
+print "first: " + first; 
+print "others: " + others; 
+
+let user = { name: "Alice", age: 30, country: "Fr" };
+let { name, age } = user;
+print "Name from obj: " + name; 
+print "Age from obj: " + age; 
+
+let data = { 
+    id: 1, 
+    info: [100, 200]
+};
+let { id, info: [val1, val2] } = data;
+print "ID: " + id; 
+print "Val1: " + val1; 
+print "Val2: " + val2; 

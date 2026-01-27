@@ -9,11 +9,14 @@
 #include <vector>
 #include <thread>
 #include "Utils.hpp"
+#include "EventLoop.hpp"
 
 class Interpreter : public ExprVisitor, public StmtVisitor {
 public:
   Interpreter();
-  void interpret(std::vector<std::shared_ptr<Stmt>> statements);
+  void interpret(std::vector<std::shared_ptr<Stmt>> statements, bool runEventLoop = true);
+  
+  std::shared_ptr<EventLoop> eventLoop;
 
   void visitExpressionStmt(Expression &stmt) override;
   void visitPrintStmt(Print &stmt) override;
@@ -49,6 +52,8 @@ public:
   void visitIndexSetExpr(IndexSet &expr) override;
   void visitFunctionExpr(FunctionExpr &expr) override;
   void visitTemplateLiteralExpr(TemplateLiteral &expr) override;
+  void visitArrowFunctionExpr(ArrowFunction &expr) override;
+  void visitObjectExpr(ObjectExpr &expr) override;
 
   void executeBlock(const std::vector<std::shared_ptr<Stmt>> &statements,
                     std::shared_ptr<Environment> environment);
@@ -61,14 +66,16 @@ public:
   Value jsonParse(std::string source);
   void setArgs(int argc, char *argv[]);
 
-private:
+  Value evaluate(std::shared_ptr<Expr> expr);
+  void execute(std::shared_ptr<Stmt> stmt);
+
   std::shared_ptr<Environment> globals;
   std::shared_ptr<Environment> environment;
   Value lastValue;
+
+private:
   std::vector<std::string> scriptArgs;
 
-  Value evaluate(std::shared_ptr<Expr> expr);
-  void execute(std::shared_ptr<Stmt> stmt);
   bool isTruthy(Value value);
   bool isEqual(Value a, Value b);
 

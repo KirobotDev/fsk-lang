@@ -1,0 +1,57 @@
+class Promise {
+    fn init(executor) {
+        this.status = "pending";
+        this.value = nil;
+        this.onResolve = [];
+        this.onReject = [];
+
+        let self = this;
+        let resolve = (val) => {
+            if (self.status != "pending") return;
+            self.status = "resolved";
+            self.value = val;
+            for (let cb of self.onResolve) {
+                cb(val);
+            }
+        };
+
+        let reject = (err) => {
+            if (self.status != "pending") return;
+            self.status = "rejected";
+            self.value = err;
+            for (let cb of self.onReject) {
+                cb(err);
+            }
+        };
+
+        try {
+            executor(resolve, reject);
+        } catch (e) {
+            reject(e);
+        }
+    }
+
+    fn then(callback) {
+        if (this.status == "resolved") {
+            callback(this.value);
+        } else {
+            this.onResolve.push(callback);
+        }
+        return this;
+    }
+
+    fn catch(callback) {
+        if (this.status == "rejected") {
+            callback(this.value);
+        } else {
+            this.onReject.push(callback);
+        }
+        return this;
+    }
+}
+
+fn delay(ms) {
+    return Promise((resolve, reject) => {
+        setTimeout(() => resolve(true), ms);
+    });
+}

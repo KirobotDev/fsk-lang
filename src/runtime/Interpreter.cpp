@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <thread>
 #include <fstream>
-#include <functional>
+#include "HttpCallback.hpp"
 #include <iostream>
 #ifdef _WIN32
 #include <winsock2.h>
@@ -60,6 +60,31 @@
 #endif
 
 using json = nlohmann::json;
+
+#ifndef __EMSCRIPTEN__
+extern "C" {
+    char* fsk_fetch_blocking(const char* url);
+    void fsk_free_string(char* s);
+    
+    typedef void (*FskHttpCallback)(uint64_t, const char*, const char*, const char*, void*);
+    void fsk_start_server(uint16_t port, FskHttpCallback callback, void* context);
+    void fsk_http_respond(uint64_t req_id, uint16_t status, const char* body);
+
+    typedef void (*FskWsCallback)(uint32_t, const char*, void*);
+    void fsk_ws_listen(uint16_t port, FskWsCallback callback, void* context);
+    void fsk_ws_send(uint32_t ws_id, const char* message);
+
+    char* fsk_crypto_sha256(const char* input);
+    char* fsk_crypto_md5(const char* input);
+
+    char* fsk_system_get_info();
+
+    uint32_t fsk_sql_open(const char* path);
+    char* fsk_sql_query(uint32_t db_id, const char* query);
+
+    void fsk_vm_run(const uint8_t* bytecode, size_t bytecode_len, const double* constants, size_t constants_len);
+}
+#endif
 
 #ifndef __EMSCRIPTEN__
 static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
@@ -117,6 +142,7 @@ json valueToJson(Value v) {
 }
 
 Interpreter::Interpreter() {
+  eventLoop = std::make_shared<EventLoop>();
   globals = std::make_shared<Environment>();
   environment = globals;
 
@@ -249,7 +275,110 @@ Interpreter::Interpreter() {
         return Value(0.0);
       }));
 
-  // Web Server Mock for Emscripten
+  globals->define("setTimeout", std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<std::shared_ptr<Callable>>(args[0]) ||
+            !std::holds_alternative<double>(args[1])) {
+          throw std::runtime_error("setTimeout attend (callback, delay_ms).");
+        }
+        auto callable = std::get<std::shared_ptr<Callable>>(args[0]);
+        int ms = (int)std::get<double>(args[1]);
+        int id = interp.eventLoop->setTimeout([&interp, callable]() {
+            try { callable->call(interp, {}); } catch(...) {}
+        }, std::chrono::milliseconds(ms));
+        return Value((double)id);
+      }));
+
+  globals->define("setInterval", std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<std::shared_ptr<Callable>>(args[0]) ||
+            !std::holds_alternative<double>(args[1])) {
+          throw std::runtime_error("setInterval attend (callback, interval_ms).");
+        }
+        auto callable = std::get<std::shared_ptr<Callable>>(args[0]);
+        int ms = (int)std::get<double>(args[1]);
+        int id = interp.eventLoop->setInterval([&interp, callable]() {
+            try { callable->call(interp, {}); } catch(...) {}
+        }, std::chrono::milliseconds(ms));
+        return Value((double)id);
+      }));
+
+  globals->define("clearTimeout", std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<double>(args[0])) {
+          throw std::runtime_error("clearTimeout attend un ID.");
+        }
+        interp.eventLoop->cancelTimer((int)std::get<double>(args[0]));
+        return Value(std::monostate{});
+      }));
+
+  globals->define("clearInterval", std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<double>(args[0])) {
+          throw std::runtime_error("clearInterval attend un ID.");
+        }
+        interp.eventLoop->cancelTimer((int)std::get<double>(args[0]));
+        return Value(std::monostate{});
+      }));
+
+  auto promiseClass = std::make_shared<FSKClass>("Promise", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  globals->define("Promise", promiseClass);
+
+  fskInstance->fields["fetch"] = std::make_shared<NativeFunction>(
+      1, std::function<Value(Interpreter &, std::vector<Value>)>(
+             [=](Interpreter &interp, std::vector<Value> args) -> Value {
+               if (!std::holds_alternative<std::string>(args[0])) {
+                 throw std::runtime_error("fetch attend une URL.");
+               }
+               std::string url = std::get<std::string>(args[0]);
+
+               auto pClassVal = interp.globals->get("Promise");
+               auto pClass = std::static_pointer_cast<FSKClass>(
+                   std::get<std::shared_ptr<Callable>>(pClassVal));
+               std::shared_ptr<FSKInstance> pInst = std::make_shared<FSKInstance>(pClass);
+               pInst->fields["status"] = std::string("pending");
+               pInst->fields["onResolve"] =
+                   std::make_shared<FSKArray>(std::vector<Value>());
+
+               pInst->fields["then"] = std::make_shared<NativeFunction>(
+                   1, std::function<Value(Interpreter &, std::vector<Value>)>(
+                          [pInst](Interpreter &i, std::vector<Value> a) -> Value {
+                            auto cb = a[0];
+                            if (std::get<std::string>(
+                                    pInst->fields["status"]) == "resolved") {
+                              if (auto c = std::get_if<std::shared_ptr<Callable>>(
+                                      &cb))
+                                (*c)->call(i, {pInst->fields["value"]});
+                            } else {
+                              std::get<std::shared_ptr<FSKArray>>(
+                                  pInst->fields["onResolve"])
+                                  ->elements.push_back(cb);
+                            }
+                            return Value(pInst);
+                          }));
+
+               interp.eventLoop->incrementWorkCount();
+               std::thread([this, url, pInst]() {
+                 char *result = fsk_fetch_blocking(url.c_str());
+                 std::string body_res(result);
+                 fsk_free_string(result);
+
+                 this->eventLoop->post([this, pInst, body_res]() {
+                   pInst->fields["status"] = std::string("resolved");
+                   pInst->fields["value"] = body_res;
+                   auto callbacks = std::get<std::shared_ptr<FSKArray>>(
+                       pInst->fields["onResolve"]);
+                   for (auto &cb : callbacks->elements) {
+                     if (auto c = std::get_if<std::shared_ptr<Callable>>(&cb))
+                       (*c)->call(*this, {Value(body_res)});
+                   }
+                   this->eventLoop->decrementWorkCount();
+                 });
+               }).detach();
+
+               return Value(pInst);
+             }));
+
 #ifdef __EMSCRIPTEN__
    fskInstance->fields["startServer"] = std::make_shared<NativeFunction>(
       2, [](Interpreter &interp, std::vector<Value> args) {
@@ -259,10 +388,8 @@ Interpreter::Interpreter() {
         std::cout << "[WEB] Server Mock Started. Listening for 'request.tmp'..." << std::endl;
         
         while(true) {
-            // Non-blocking wait
             emscripten_sleep(100);
             
-            // Check request
             std::ifstream reqFile("request.tmp");
             if (reqFile.is_open()) {
                 std::stringstream buffer;
@@ -273,11 +400,9 @@ Interpreter::Interpreter() {
                 
                 std::cout << "[WEB] Handling Request: " << request.substr(0, 50) << "..." << std::endl;
                 
-                // Call Handler
                 Value res = handler->call(interp, {Value(request)});
                 std::string response = interp.stringify(res);
                 
-                // Write Response
                 std::ofstream resFile("response.tmp");
                 resFile << response;
                 resFile.close();
@@ -307,124 +432,24 @@ Interpreter::Interpreter() {
       });
 
 #ifndef __EMSCRIPTEN__
-  fskInstance->fields["startServer"] = std::make_shared<NativeFunction>(
+  fskInstance->fields["listen"] = std::make_shared<NativeFunction>(
       2, [](Interpreter &interp, std::vector<Value> args) {
-#ifdef _WIN32
-        throw std::runtime_error("startServer n'est pas encore supporté sur Windows.");
-#else
         if (!std::holds_alternative<double>(args[0])) {
-          throw std::runtime_error("startServer attend un port (nombre).");
+          throw std::runtime_error("listen attend un port (nombre).");
         }
         int port = (int)std::get<double>(args[0]);
 
         if (!std::holds_alternative<std::shared_ptr<Callable>>(args[1])) {
-           throw std::runtime_error("startServer attend une fonction handler.");
+           throw std::runtime_error("listen attend une fonction handler.");
         }
-        auto handler = std::get<std::shared_ptr<Callable>>(args[1]);
+        
+        interp.globals->define("onHttpRequest", args[1]);
+        interp.eventLoop->incrementWorkCount();
 
-        int server_fd, new_socket;
-        struct sockaddr_in address;
-        int opt = 1;
-        int addrlen = sizeof(address);
+        std::thread([port, &interp]() {
+            fsk_start_server((uint16_t)port, fsk_on_http_request, &interp);
+        }).detach();
 
-        if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-          throw std::runtime_error("Socket failed");
-        }
-
-        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt,
-                       sizeof(opt))) {
-          throw std::runtime_error("Setsockopt failed");
-        }
-
-        address.sin_family = AF_INET;
-        address.sin_addr.s_addr = INADDR_ANY;
-        address.sin_port = htons(port);
-
-        if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-          throw std::runtime_error("Bind failed");
-        }
-
-        if (listen(server_fd, 3) < 0) {
-          throw std::runtime_error("Listen failed");
-        }
-
-        std::cout << "Server started on port " << port << std::endl;
-
-        while (true) {
-          if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
-                                   (socklen_t *)&addrlen)) < 0) {
-            perror("accept");
-            continue;
-          }
-
-          std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-          int content_length = 0;
-          std::string request = "";
-          char buffer[4096];
-          
-          while (request.find("\r\n\r\n") == std::string::npos) {
-             int valread = recv(new_socket, buffer, sizeof(buffer), 0);
-             if (valread <= 0) break;
-             request.append(buffer, valread);
-          }
-          
-          size_t cl_pos = request.find("Content-Length: ");
-          if (cl_pos != std::string::npos) {
-              size_t cl_end = request.find("\r\n", cl_pos);
-              if (cl_end != std::string::npos) {
-                  std::string cl_str = request.substr(cl_pos + 16, cl_end - (cl_pos + 16));
-                  try {
-                      content_length = std::stoi(cl_str);
-                  } catch (...) { content_length = 0; }
-              }
-          }
-          
-          size_t header_end_pos = request.find("\r\n\r\n");
-          if (header_end_pos != std::string::npos) {
-              size_t body_start = header_end_pos + 4;
-              size_t current_body_len = request.length() - body_start;
-              
-              while (current_body_len < content_length) {
-                  int valread = recv(new_socket, buffer, sizeof(buffer), 0);
-                  if (valread <= 0) break;
-                  request.append(buffer, valread);
-                  current_body_len += valread;
-              }
-          }
-
-          std::vector<Value> handlerArgs;
-          handlerArgs.push_back(Value(request));
-          std::string responseBody = "";
-
-          try {
-             Value responseVal = handler->call(interp, handlerArgs);
-
-             if (std::holds_alternative<std::string>(responseVal)) {
-                responseBody = std::get<std::string>(responseVal);
-             }
-          } catch (const Value &returnValue) {
-
-             if (std::holds_alternative<std::string>(returnValue)) {
-                responseBody = std::get<std::string>(returnValue);
-             }
-          } catch (const std::exception &e) {
-
-          } catch (...) {
-
-          }
-
-          std::string httpResponse;
-          if (responseBody.substr(0, 8) == "HTTP/1.1" || responseBody.substr(0, 8) == "HTTP/1.0") {
-              httpResponse = responseBody;
-          } else {
-              httpResponse = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: " + std::to_string(responseBody.length()) + "\n\n" + responseBody;
-          }
-          
-          send(new_socket, httpResponse.c_str(), httpResponse.length(), 0);
-          close(new_socket);
-        }
-#endif
         return Value(true);
       });
 #endif
@@ -525,24 +550,6 @@ Interpreter::Interpreter() {
         return Value(f.good());
      });
 
-   fskInstance->fields["fetch"] = std::make_shared<NativeFunction>(
-     1, [](Interpreter &interp, std::vector<Value> args) {
-        if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("fetch attend une URL.");
-#ifndef __EMSCRIPTEN__
-        std::string url = std::get<std::string>(args[0]);
-        std::string cmd = "curl -s \"" + url + "\"";
-        std::array<char, 128> buffer;
-        std::string result;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (!pipe) return Value(std::string("Error: fetch failed"));
-        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-           result += buffer.data();
-        }
-        return Value(result);
-#else
-        return Value(std::string("Fetch not supported in WASM yet."));
-#endif
-     });
 
    fskInstance->fields["sin"] = std::make_shared<NativeFunction>(
       1, [](Interpreter &interp, std::vector<Value> args) {
@@ -566,6 +573,20 @@ Interpreter::Interpreter() {
       });
    fskInstance->fields["PI"] = Value(3.14159265358979323846);
    fskInstance->fields["E"] = Value(2.71828182845904523536);
+
+   auto wsNInstance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>()));
+   wsNInstance->fields["listen"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<double>(args[0])) throw std::runtime_error("WS.listen requires port");
+       int port = (int)std::get<double>(args[0]);
+       interp.globals->define("onWsMessage", args[1]);
+       interp.eventLoop->incrementWorkCount();
+       std::thread([port, &interp]() {
+           fsk_ws_listen((uint16_t)port, fsk_on_ws_message, &interp);
+       }).detach();
+       return Value(true);
+   });
+   
+   globals->define("WS", wsNInstance);
 
   globals->define("FSK", fskInstance);
 
@@ -606,175 +627,57 @@ Interpreter::Interpreter() {
 
   globals->define("Console", consoleInstance);
 
-  auto sqlClass = std::make_shared<FSKClass>("SQL", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
-  auto sqlInstance = std::make_shared<FSKInstance>(sqlClass);
+   auto sqlClass = std::make_shared<FSKClass>("SQL", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto sqlInstance = std::make_shared<FSKInstance>(sqlClass);
 
-  sqlInstance->fields["open"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-      if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
-      std::string path = std::get<std::string>(args[0]);
-      
-      sqlite3 *db;
-      int rc = sqlite3_open(path.c_str(), &db);
-      if (rc) {
-          sqlite3_close(db);
-          return Value(-1.0);
-      }
-      
-      int id = interp.dbIdCounter++;
-      interp.databases[id] = (void*)db;
-      return Value((double)id);
-  });
-
-  sqlInstance->fields["exec"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
-      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
-      int id = (int)std::get<double>(args[0]);
-      std::string sql = std::get<std::string>(args[1]);
-
-      if (interp.databases.find(id) == interp.databases.end()) return Value(false);
-      
-      char *zErrMsg = 0;
-      int rc = sqlite3_exec((sqlite3*)interp.databases[id], sql.c_str(), 0, 0, &zErrMsg);
-      if (rc != SQLITE_OK) {
-           sqlite3_free(zErrMsg);
-           return Value(false);
-      }
-      return Value(true);
-  });
+   sqlInstance->fields["open"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(0.0);
+      return Value((double)fsk_sql_open(std::get<std::string>(args[0]).c_str()));
+   });
 
    sqlInstance->fields["query"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
       if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(std::monostate{}); 
-      int id = (int)std::get<double>(args[0]);
-      std::string sql = std::get<std::string>(args[1]);
+      char* res = fsk_sql_query((uint32_t)std::get<double>(args[0]), std::get<std::string>(args[1]).c_str());
+      std::string result(res);
+      fsk_free_string(res);
+      return interp.jsonParse(result);
+   });
 
-      if (interp.databases.find(id) == interp.databases.end()) return Value(std::monostate{});
+   globals->define("SQL", sqlInstance);
 
-      sqlite3_stmt *stmt;
-      int rc = sqlite3_prepare_v2((sqlite3*)interp.databases[id], sql.c_str(), -1, &stmt, 0);
-      if (rc != SQLITE_OK) return Value(std::monostate{});
+   auto systemClass = std::make_shared<FSKClass>("System", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto systemInstance = std::make_shared<FSKInstance>(systemClass);
+   systemInstance->fields["getInfo"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      char* res = fsk_system_get_info();
+      std::string result(res);
+      fsk_free_string(res);
+      return interp.jsonParse(result);
+   });
+   globals->define("System", systemInstance);
 
-      std::vector<Value> rows;
+   auto vmClass = std::make_shared<FSKClass>("VM", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto vmInstance = std::make_shared<FSKInstance>(vmClass);
+   vmInstance->fields["run"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::shared_ptr<FSKArray>>(args[0]) || !std::holds_alternative<std::shared_ptr<FSKArray>>(args[1])) {
+           throw std::runtime_error("VM.run needs (bytecode_array, constants_array)");
+       }
+       auto bArr = std::get<std::shared_ptr<FSKArray>>(args[0]);
+       auto cArr = std::get<std::shared_ptr<FSKArray>>(args[1]);
 
-      while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-          
-          auto rowClass = std::make_shared<FSKClass>("Row", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
-          auto rowInstance = std::make_shared<FSKInstance>(rowClass);
+       std::vector<uint8_t> bytecode;
+       for (auto& v : bArr->elements) {
+           if (std::holds_alternative<double>(v)) bytecode.push_back((uint8_t)std::get<double>(v));
+       }
 
-          int cols = sqlite3_column_count(stmt);
-          for (int i = 0; i < cols; i++) {
-              std::string colName = sqlite3_column_name(stmt, i);
-              int type = sqlite3_column_type(stmt, i);
-              
-              if (type == SQLITE_INTEGER) {
-                  rowInstance->fields[colName] = Value((double)sqlite3_column_int(stmt, i));
-              } else if (type == SQLITE_FLOAT) {
-                  rowInstance->fields[colName] = Value(sqlite3_column_double(stmt, i));
-              } else if (type == SQLITE_TEXT) {
-                  const unsigned char *val = sqlite3_column_text(stmt, i);
-                  rowInstance->fields[colName] = Value(std::string(reinterpret_cast<const char*>(val)));
-              } else {
-                  rowInstance->fields[colName] = Value(std::monostate{});
-              }
-          }
-          rows.push_back(Value(rowInstance));
-      }
-      sqlite3_finalize(stmt);
-      return Value(std::make_shared<FSKArray>(rows));
-  });
+       std::vector<double> constants;
+       for (auto& v : cArr->elements) {
+           if (std::holds_alternative<double>(v)) constants.push_back(std::get<double>(v));
+       }
 
-  globals->define("SQL", sqlInstance);
-
-  auto wsClass = std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
-  auto wsInstance = std::make_shared<FSKInstance>(wsClass);
-
-
-#ifndef __EMSCRIPTEN__
-#endif
-
-  wsInstance->fields["connect"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-#ifndef __EMSCRIPTEN__
-      if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
-      std::string url = std::get<std::string>(args[0]);
-      
-      easywsclient::WebSocket::pointer ws = easywsclient::WebSocket::from_url(url);
-      if (!ws) return Value(-1.0);
-      
-      int id = interp.wsIdCounter++;
-      interp.sockets[id] = std::shared_ptr<void>(ws); 
-      return Value((double)id);
-#else
-      return Value(-1.0);
-#endif
-  });
-
-  wsInstance->fields["send"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
-#ifndef __EMSCRIPTEN__
-      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
-      int id = (int)std::get<double>(args[0]);
-      std::string msg = std::get<std::string>(args[1]);
-      
-      if (interp.sockets.find(id) == interp.sockets.end()) return Value(false);
-      auto ws = static_cast<easywsclient::WebSocket*>(interp.sockets[id].get());
-      if (ws) {
-          ws->send(msg);
-          return Value(true);
-      }
-      return Value(false);
-#else
-      return Value(false);
-#endif
-  });
-
-  wsInstance->fields["poll"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-#ifndef __EMSCRIPTEN__
-      if (!std::holds_alternative<double>(args[0])) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
-      int id = (int)std::get<double>(args[0]);
-      
-      if (interp.sockets.find(id) == interp.sockets.end()) return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
-      auto ws = static_cast<easywsclient::WebSocket*>(interp.sockets[id].get());
-      
-      std::vector<Value> messages;
-      if (ws) {
-        ws->poll();
-        ws->dispatch([&messages](const std::string & message) {
-            messages.push_back(Value(message));
-        });
-      }
-      return Value(std::make_shared<FSKArray>(messages));
-#else
-      return Value(std::make_shared<FSKArray>(std::vector<Value>{}));
-#endif
-  });
-
-  wsInstance->fields["readyState"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-#ifndef __EMSCRIPTEN__
-     if (!std::holds_alternative<double>(args[0])) return Value(-1.0);
-     int id = (int)std::get<double>(args[0]);
-     if (interp.sockets.find(id) == interp.sockets.end()) return Value(-1.0);
-     auto ws = static_cast<easywsclient::WebSocket*>(interp.sockets[id].get());
-     if(ws) return Value((double)ws->getReadyState());
-     return Value(-1.0);
-#else
-     return Value(-1.0);
-#endif
-  });
-
-  wsInstance->fields["close"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
-#ifndef __EMSCRIPTEN__
-     if (!std::holds_alternative<double>(args[0])) return Value(false);
-     int id = (int)std::get<double>(args[0]);
-     if (interp.sockets.find(id) == interp.sockets.end()) return Value(false);
-     auto ws = static_cast<easywsclient::WebSocket*>(interp.sockets[id].get());
-     if(ws) {
-         ws->close();
-         interp.sockets.erase(id);
-     }
-     return Value(true);
-#else
-     return Value(false);
-#endif
-  });
-  
-  globals->define("WS", wsInstance);
+       fsk_vm_run(bytecode.data(), bytecode.size(), constants.data(), constants.size());
+       return Value(true);
+   });
+   globals->define("VM", vmInstance);
 
   auto jsonClass = std::make_shared<FSKClass>("JSON", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
   auto jsonInstance = std::make_shared<FSKInstance>(jsonClass);
@@ -801,39 +704,23 @@ Interpreter::Interpreter() {
   auto cryptoClass = std::make_shared<FSKClass>("Crypto", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
   auto cryptoInstance = std::make_shared<FSKInstance>(cryptoClass);
 
-  cryptoInstance->fields["sha256"] = std::make_shared<NativeFunction>(
-      1, [](Interpreter &interp, std::vector<Value> args) {
-        if (!std::holds_alternative<std::string>(args[0])) return Value(std::string(""));
-        std::string input = std::get<std::string>(args[0]);
-#ifndef __EMSCRIPTEN__
-        unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256((const unsigned char *)input.c_str(), input.length(), hash);
-        std::stringstream ss;
-        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-          ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
-        }
-        return Value(ss.str());
-#else
-        return Value(std::string("SHA256 not supported in WASM yet"));
-#endif
-      });
+   cryptoInstance->fields["sha256"] = std::make_shared<NativeFunction>(
+       1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return Value(std::string(""));
+         char* res = fsk_crypto_sha256(std::get<std::string>(args[0]).c_str());
+         std::string result(res);
+         fsk_free_string(res);
+         return Value(result);
+       });
 
-  cryptoInstance->fields["md5"] = std::make_shared<NativeFunction>(
-      1, [](Interpreter &interp, std::vector<Value> args) {
-        if (!std::holds_alternative<std::string>(args[0])) return Value(std::string(""));
-        std::string input = std::get<std::string>(args[0]);
-#ifndef __EMSCRIPTEN__
-        unsigned char digest[MD5_DIGEST_LENGTH];
-        MD5((const unsigned char *)input.c_str(), input.length(), digest);
-        std::stringstream ss;
-        for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-          ss << std::hex << std::setw(2) << std::setfill('0') << (int)digest[i];
-        }
-        return Value(ss.str());
-#else
-        return Value(std::string("MD5 not supported in WASM yet"));
-#endif
-      });
+   cryptoInstance->fields["md5"] = std::make_shared<NativeFunction>(
+       1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return Value(std::string(""));
+         char* res = fsk_crypto_md5(std::get<std::string>(args[0]).c_str());
+         std::string result(res);
+         fsk_free_string(res);
+         return Value(result);
+       });
 
   cryptoInstance->fields["base64Encode"] = std::make_shared<NativeFunction>(
     1, [](Interpreter &interp, std::vector<Value> args) {
@@ -1408,10 +1295,14 @@ Interpreter::Interpreter() {
   }
 }
 
-void Interpreter::interpret(std::vector<std::shared_ptr<Stmt>> statements) {
+void Interpreter::interpret(std::vector<std::shared_ptr<Stmt>> statements, bool runEventLoop) {
   try {
     for (const auto &stmt : statements) {
       execute(stmt);
+    }
+    
+    if (runEventLoop) {
+      eventLoop->run();
     }
   } catch (const std::runtime_error &error) {
     std::cerr << "Erreur d'exécution : " << error.what() << std::endl;
@@ -1755,11 +1646,20 @@ void Interpreter::visitCallExpr(Call &expr) {
 
   if (std::holds_alternative<std::shared_ptr<Callable>>(callee)) {
     auto function = std::get<std::shared_ptr<Callable>>(callee);
-    if (arguments.size() != (size_t)function->arity() &&
-        function->arity() != -1) {
-      throw std::runtime_error("Expected " + std::to_string(function->arity()) +
-                               " arguments but got " +
-                               std::to_string(arguments.size()) + ".");
+    int min = function->minArity();
+    int max = function->maxArity();
+    
+    if (arguments.size() < (size_t)min || (max != -1 && arguments.size() > (size_t)max)) {
+      if (min == max) {
+        throw std::runtime_error("Expected " + std::to_string(min) +
+                                 " arguments but got " +
+                                 std::to_string(arguments.size()) + ".");
+      } else {
+        throw std::runtime_error("Expected " + std::to_string(min) + "-" + 
+                                 std::to_string(max) +
+                                 " arguments but got " +
+                                 std::to_string(arguments.size()) + ".");
+      }
     }
     lastValue = function->call(*this, arguments);
   } else {
@@ -1982,6 +1882,22 @@ void Interpreter::visitFunctionExpr(FunctionExpr &expr) {
   lastValue = callable;
 }
 
+void Interpreter::visitArrowFunctionExpr(ArrowFunction &expr) {
+  Token name(TokenType::IDENTIFIER, "", std::monostate{}, 0);
+  auto function = std::make_shared<Function>(name, expr.params, expr.body, false);
+  auto callable = std::make_shared<FunctionCallable>(function, environment);
+  lastValue = callable;
+}
+
+void Interpreter::visitObjectExpr(ObjectExpr &expr) {
+  static auto objClass = std::make_shared<FSKClass>("Object", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto instance = std::make_shared<FSKInstance>(objClass);
+  for (auto const& [key, valExpr] : expr.fields) {
+    instance->fields[key] = evaluate(valExpr);
+  }
+  lastValue = instance;
+}
+
 void Interpreter::visitTemplateLiteralExpr(TemplateLiteral &expr) {
   std::string result = "";
   for (size_t i = 0; i < expr.strings.size(); i++) {
@@ -2162,6 +2078,21 @@ void Interpreter::bindPattern(std::shared_ptr<Expr> pat, Value value, bool isCon
     }
     return;
   }
+
+  if (ObjectExpr *o = dynamic_cast<ObjectExpr *>(pat.get())) {
+    if (!std::holds_alternative<std::shared_ptr<FSKInstance>>(value)) {
+      throw std::runtime_error("Cannot destructure non-object value.");
+    }
+    auto inst = std::get<std::shared_ptr<FSKInstance>>(value);
+    for (auto const& [key, valPat] : o->fields) {
+      if (inst->fields.count(key)) {
+        bindPattern(valPat, inst->fields[key], isConst);
+      } else {
+        bindPattern(valPat, std::monostate{}, isConst);
+      }
+    }
+    return;
+  }
 }
 
 bool Interpreter::matchPattern(std::shared_ptr<Expr> pat, Value value) {
@@ -2260,4 +2191,75 @@ std::string Interpreter::jsonStringify(Value value) {
 Value Interpreter::jsonParse(std::string source) {
     auto j = json::parse(source);
     return jsonToValue(j);
+}
+
+extern "C" void fsk_on_http_request(uint64_t req_id, const char* method, const char* path, const char* body, void* context) {
+    if (!context) return;
+    auto interp = static_cast<Interpreter*>(context);
+    
+    std::string m(method);
+    std::string p(path);
+    std::string b(body);
+    
+    interp->eventLoop->post([interp, req_id, m, p, b]() {
+        Value handler;
+        try {
+            handler = interp->globals->get("onHttpRequest");
+        } catch (...) {
+            fsk_http_respond(req_id, 404, "Not Found");
+            return;
+        }
+
+        if (std::holds_alternative<std::shared_ptr<Callable>>(handler)) {
+            static auto reqClass = std::make_shared<FSKClass>("Request", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+            auto reqInst = std::make_shared<FSKInstance>(reqClass);
+            reqInst->fields["id"] = (double)req_id;
+            reqInst->fields["method"] = m;
+            reqInst->fields["path"] = p;
+            reqInst->fields["body"] = b;
+            
+            reqInst->fields["send"] = std::make_shared<NativeFunction>(1, std::function<Value(Interpreter&, std::vector<Value>)>([req_id](Interpreter& i, std::vector<Value> args) -> Value {
+                if (args.size() > 0 && std::holds_alternative<std::string>(args[0])) {
+                    fsk_http_respond(req_id, 200, std::get<std::string>(args[0]).c_str());
+                } else {
+                    fsk_http_respond(req_id, 200, "");
+                }
+                return Value(std::monostate{});
+            }));
+
+            std::get<std::shared_ptr<Callable>>(handler)->call(*interp, {Value(reqInst)});
+        } else {
+            fsk_http_respond(req_id, 500, "Internal Server Error");
+        }
+    });
+}
+
+extern "C" void fsk_on_ws_message(uint32_t ws_id, const char* message, void* context) {
+    if (!context) return;
+    auto interp = static_cast<Interpreter*>(context);
+    std::string msg(message);
+    
+    interp->eventLoop->post([interp, ws_id, msg]() {
+        Value handler;
+        try {
+            handler = interp->globals->get("onWsMessage");
+        } catch (...) {
+            return;
+        }
+
+        if (std::holds_alternative<std::shared_ptr<Callable>>(handler)) {
+            static auto wsClass = std::make_shared<FSKClass>("WebSocketPointer", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+            auto wsInst = std::make_shared<FSKInstance>(wsClass);
+            wsInst->fields["id"] = (double)ws_id;
+            
+            wsInst->fields["send"] = std::make_shared<NativeFunction>(1, std::function<Value(Interpreter&, std::vector<Value>)>([ws_id](Interpreter& i, std::vector<Value> args) -> Value {
+                if (args.size() > 0 && std::holds_alternative<std::string>(args[0])) {
+                    fsk_ws_send(ws_id, std::get<std::string>(args[0]).c_str());
+                }
+                return Value(std::monostate{});
+            }));
+
+            std::get<std::shared_ptr<Callable>>(handler)->call(*interp, {Value(wsInst), Value(msg)});
+        }
+    });
 }

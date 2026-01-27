@@ -1,20 +1,20 @@
+print "--- Test Event Loop ---";
 
-print "Main Start";
-FS.write("async_job.fsk", "print 'Job Working...'; sleep(500); workerPostMessage('Job Done');");
+setTimeout(() => {
+    print "Message après 500ms";
+}, 500);
 
-print "Starting Async Task...";
-let task = Task.run("async_job.fsk");
+setTimeout(() => {
+    print "Message après 100ms";
+}, 100);
 
-if (task == nil) {
-    print "Task failed to start.";
-    exit(1);
-}
+let count = 0;
+let id = setInterval(() => {
+    count = count + 1;
+    print "Intervalle : " + count;
+    if (count == 3) {
+        print "Fin des intervalles (simulation)";
+    }
+}, 200);
 
-print "Task Running. Awaiting result...";
-
-let result = await task;
-
-print "Async Result: " + result;
-
-FS.delete("async_job.fsk");
-print "Main End";
+print "Fin du script principal (mais l'event loop continue)";

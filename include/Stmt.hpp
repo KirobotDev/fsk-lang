@@ -104,12 +104,12 @@ struct While : Stmt {
 
 struct Function : Stmt {
   Token name;
-  std::vector<Token> params;
+  std::vector<Parameter> params;
   std::vector<std::shared_ptr<Stmt>> body;
   bool isAsync;
   std::string returnType;
 
-  Function(Token name, std::vector<Token> params,
+  Function(Token name, std::vector<Parameter> params,
            std::vector<std::shared_ptr<Stmt>> body, bool isAsync,
            std::string returnType = "")
       : name(name), params(params), body(body), isAsync(isAsync),

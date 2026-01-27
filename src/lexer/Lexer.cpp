@@ -31,7 +31,8 @@ const std::map<std::string, TokenType> Lexer::keywords = {
     {"try", TokenType::TRY},
     {"catch", TokenType::CATCH},
     {"throw", TokenType::THROW},
-    {"match", TokenType::MATCH}};
+    {"match", TokenType::MATCH},
+    {"new", TokenType::NEW}};
 
 Lexer::Lexer(std::string source) : source(source) {}
 
@@ -273,7 +274,13 @@ void Lexer::scanTokenInternal() {
     addToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
     break;
   case '=':
-    addToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+    if (match('=')) {
+      addToken(TokenType::EQUAL_EQUAL);
+    } else if (match('>')) {
+      addToken(TokenType::FAT_ARROW);
+    } else {
+      addToken(TokenType::EQUAL);
+    }
     break;
   case '<':
     addToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);

@@ -1,0 +1,6 @@
+const sha256 = (input) => Crypto.sha256(input);
+const md5 = (input) => Crypto.md5(input);
+const base64Encode = (input) => Crypto.base64Encode(input);
+const base64Decode = (input) => Crypto.base64Decode(input);
+
+export default { sha256, md5, base64Encode, base64Decode };

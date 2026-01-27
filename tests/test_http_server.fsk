@@ -1,0 +1,11 @@
+print "--- Fsk High-Performance HTTP Server (Rust Core) ---";
+
+FSK.listen(3000, (req) => {
+    print "[FSK] Requête reçue !";
+    print "[FSK] Method: " + req.method;
+    print "[FSK] Path: " + req.path;
+    
+    req.send("Hello from Fsk Perfect Edition! req_id: " + req.id);
+});
+
+print "Serveur en cours d'exécution sur le port 3000...";

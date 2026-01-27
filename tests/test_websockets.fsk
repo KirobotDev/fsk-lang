@@ -1,0 +1,8 @@
+print "--- Fsk Real-time WebSocket Server (Rust Core) ---";
+
+WS.listen(3001, (ws, msg) => {
+    print "[WS] Message reçu de client " + ws.id + ": " + msg;
+    ws.send("Echo des abysses: " + msg);
+});
+
+print "Serveur WebSocket prêt sur le port 3001...";

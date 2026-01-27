@@ -77,7 +77,7 @@ public:
     std::cout << "(" << (stmt.isAsync ? "async " : "") << "fn "
               << stmt.name.lexeme << "(";
     for (size_t i = 0; i < stmt.params.size(); ++i) {
-      std::cout << stmt.params[i].lexeme
+      std::cout << stmt.params[i].name.lexeme
                 << (i < stmt.params.size() - 1 ? ", " : "");
     }
     std::cout << ") block)" << std::endl;
@@ -209,13 +209,21 @@ public:
   void visitFunctionExpr(FunctionExpr &expr) override {
     std::cout << "(fn args: ";
     for (const auto &param : expr.params) {
-      std::cout << param.lexeme << " ";
+      std::cout << param.name.lexeme << " ";
     }
     std::cout << " block)";
   }
 
   void visitTemplateLiteralExpr(TemplateLiteral &expr) override {
     std::cout << "(template-literal)";
+  }
+
+  void visitArrowFunctionExpr(ArrowFunction &expr) override {
+    std::cout << "(arrow-fn args: ";
+    for (const auto &param : expr.params) {
+      std::cout << param.name.lexeme << " ";
+    }
+    std::cout << (expr.isExpressionBody ? " expr-body)" : " block)");
   }
 
   void visitArrayExpr(Array &expr) override {

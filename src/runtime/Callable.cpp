@@ -3,6 +3,17 @@
 
 int FunctionCallable::arity() { return declaration->params.size(); }
 
+int FunctionCallable::minArity() {
+  int min = 0;
+  for (const auto &param : declaration->params) {
+    if (param.defaultValue == nullptr)
+      min++;
+    else
+      break;
+  }
+  return min;
+}
+
 std::string FunctionCallable::toString() {
   return "<fn " + declaration->name.lexeme + ">";
 }
@@ -11,8 +22,17 @@ Value FunctionCallable::call(Interpreter &interpreter,
                              std::vector<Value> arguments) {
   std::shared_ptr<Environment> environment =
       std::make_shared<Environment>(closure);
+  
   for (size_t i = 0; i < declaration->params.size(); ++i) {
-    environment->define(declaration->params[i].lexeme, arguments[i]);
+    Value val;
+    if (i < arguments.size()) {
+      val = arguments[i];
+    } else if (declaration->params[i].defaultValue != nullptr) {
+      val = interpreter.evaluate(declaration->params[i].defaultValue);
+    } else {
+      val = std::monostate{};
+    }
+    environment->define(declaration->params[i].name.lexeme, val);
   }
 
   try {

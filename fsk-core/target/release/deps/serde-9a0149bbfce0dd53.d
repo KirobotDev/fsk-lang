@@ -1,0 +1,14 @@
+/home/sionuk/Bureau/Fsk Language (Copie)/fsk-core/target/release/deps/serde-9a0149bbfce0dd53.d: /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/sionuk/Bureau/Fsk\ Language\ (Copie)/fsk-core/target/release/build/serde-41e97f31a0c20611/out/private.rs
+
+/home/sionuk/Bureau/Fsk Language (Copie)/fsk-core/target/release/deps/libserde-9a0149bbfce0dd53.rlib: /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/sionuk/Bureau/Fsk\ Language\ (Copie)/fsk-core/target/release/build/serde-41e97f31a0c20611/out/private.rs
+
+/home/sionuk/Bureau/Fsk Language (Copie)/fsk-core/target/release/deps/libserde-9a0149bbfce0dd53.rmeta: /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/sionuk/Bureau/Fsk\ Language\ (Copie)/fsk-core/target/release/build/serde-41e97f31a0c20611/out/private.rs
+
+/home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/sionuk/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/home/sionuk/Bureau/Fsk\ Language\ (Copie)/fsk-core/target/release/build/serde-41e97f31a0c20611/out/private.rs:
+
+# env-dep:OUT_DIR=/home/sionuk/Bureau/Fsk Language (Copie)/fsk-core/target/release/build/serde-41e97f31a0c20611/out

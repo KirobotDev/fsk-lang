@@ -1,5 +1,6 @@
 #pragma once
 #include "Token.hpp"
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -29,6 +30,15 @@ struct Array;
 struct IndexExpr;
 struct IndexSet;
 struct TemplateLiteral;
+struct ArrowFunction;
+struct ObjectExpr;
+
+struct Parameter {
+  Token name;
+  std::shared_ptr<Expr> defaultValue;
+  Parameter(Token name, std::shared_ptr<Expr> defaultValue = nullptr)
+      : name(name), defaultValue(defaultValue) {}
+};
 
 struct ExprVisitor {
   virtual void visitBinaryExpr(Binary &expr) = 0;
@@ -49,6 +59,8 @@ struct ExprVisitor {
   virtual void visitIndexSetExpr(IndexSet &expr) = 0;
   virtual void visitFunctionExpr(FunctionExpr &expr) = 0;
   virtual void visitTemplateLiteralExpr(TemplateLiteral &expr) = 0;
+  virtual void visitArrowFunctionExpr(ArrowFunction &expr) = 0;
+  virtual void visitObjectExpr(ObjectExpr &expr) = 0;
 };
 
 struct Binary : Expr {
@@ -186,11 +198,20 @@ struct IndexSet : Expr {
 };
 
 struct FunctionExpr : Expr {
-  std::vector<Token> params;
+  std::vector<Parameter> params;
   std::vector<std::shared_ptr<Stmt>> body;
-  FunctionExpr(std::vector<Token> params, std::vector<std::shared_ptr<Stmt>> body)
+  FunctionExpr(std::vector<Parameter> params, std::vector<std::shared_ptr<Stmt>> body)
       : params(params), body(body) {}
   void accept(ExprVisitor &visitor) override { visitor.visitFunctionExpr(*this); }
+};
+
+struct ArrowFunction : Expr {
+  std::vector<Parameter> params;
+  std::vector<std::shared_ptr<Stmt>> body;
+  bool isExpressionBody;
+  ArrowFunction(std::vector<Parameter> params, std::vector<std::shared_ptr<Stmt>> body, bool isExpressionBody)
+      : params(params), body(body), isExpressionBody(isExpressionBody) {}
+  void accept(ExprVisitor &visitor) override { visitor.visitArrowFunctionExpr(*this); }
 };
 
 struct TemplateLiteral : Expr {
@@ -202,4 +223,10 @@ struct TemplateLiteral : Expr {
   void accept(ExprVisitor &visitor) override {
     visitor.visitTemplateLiteralExpr(*this);
   }
+};
+
+struct ObjectExpr : Expr {
+  std::map<std::string, std::shared_ptr<Expr>> fields;
+  ObjectExpr(std::map<std::string, std::shared_ptr<Expr>> fields) : fields(fields) {}
+  void accept(ExprVisitor &visitor) override { visitor.visitObjectExpr(*this); }
 };

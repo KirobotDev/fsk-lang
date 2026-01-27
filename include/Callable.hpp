@@ -13,6 +13,8 @@ class Interpreter;
 struct Callable {
   virtual ~Callable() = default;
   virtual int arity() = 0;
+  virtual int minArity() { return arity(); }
+  virtual int maxArity() { return arity(); }
   virtual Value call(Interpreter &interpreter,
                      std::vector<Value> arguments) = 0;
   virtual std::string toString() = 0;
@@ -27,6 +29,8 @@ struct FunctionCallable : public Callable {
       : declaration(declaration), closure(closure) {}
 
   int arity() override;
+  int minArity() override;
+  int maxArity() override { return arity(); }
   Value call(Interpreter &interpreter, std::vector<Value> arguments) override;
   std::string toString() override;
   std::shared_ptr<FunctionCallable> bind(std::shared_ptr<FSKInstance> instance);

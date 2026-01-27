@@ -1,0 +1,31 @@
+import "std/async.fsk";
+
+print "--- Test Timers & Promises ---";
+
+let count = 0;
+let timerId = setInterval(() => {
+    count = count + 1;
+    print "Counter: " + count;
+    if (count == 2) {
+        print "Stopping interval " + timerId;
+        clearInterval(timerId);
+    }
+}, 100);
+
+let p = new Promise((resolve, reject) => {
+    print "Promise executor running...";
+    setTimeout(() => {
+        print "Resolving promise...";
+        resolve("Données reçues !");
+    }, 500);
+});
+
+p.then((data) => {
+    print "Promise Resolved: " + data;
+});
+
+delay(800).then(() => {
+    print "Delay of 800ms finished.";
+});
+
+print "Main script end.";

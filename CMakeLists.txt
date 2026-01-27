@@ -36,5 +36,8 @@ if(WIN32)
     target_link_libraries(fsk PRIVATE ws2_32)
 endif()
 
+target_link_libraries(fsk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fsk-core/target/release/libfsk_core.a)
+target_link_libraries(fsk PRIVATE pthread dl m)
+
 
 

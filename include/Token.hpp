@@ -17,6 +17,7 @@ enum class TokenType {
   SLASH,
   STAR,
   ARROW, 
+  FAT_ARROW,
   COLON, 
 
   LEFT_BRACKET,
@@ -69,6 +70,7 @@ enum class TokenType {
   PIPE,             
   ELLIPSIS,         
 
+  NEW,
   EOF_TOKEN
 };
 

@@ -1,5 +1,6 @@
 #include "Parser.hpp"
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -59,13 +60,15 @@ std::shared_ptr<Stmt> Parser::classDeclaration() {
 std::shared_ptr<Stmt> Parser::function(std::string kind, bool isAsync) {
   Token name = consume(TokenType::IDENTIFIER, "Expect " + kind + " name.");
   consume(TokenType::LEFT_PAREN, "Expect '(' after " + kind + " name.");
-  std::vector<Token> parameters;
+  std::vector<Parameter> parameters;
   if (!check(TokenType::RIGHT_PAREN)) {
     do {
-      if (parameters.size() >= 255) {
+      Token name = consume(TokenType::IDENTIFIER, "Expect parameter name.");
+      std::shared_ptr<Expr> defaultValue = nullptr;
+      if (match({TokenType::EQUAL})) {
+        defaultValue = expression();
       }
-      parameters.push_back(
-          consume(TokenType::IDENTIFIER, "Expect parameter name."));
+      parameters.push_back(Parameter(name, defaultValue));
     } while (match({TokenType::COMMA}));
   }
   consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
@@ -127,7 +130,24 @@ std::shared_ptr<Expr> Parser::pattern() {
     return std::make_shared<Array>(elements);
   }
 
-  
+  if (match({TokenType::LEFT_BRACE})) {
+    std::map<std::string, std::shared_ptr<Expr>> fields;
+    if (!check(TokenType::RIGHT_BRACE)) {
+      do {
+        Token key = consume(TokenType::IDENTIFIER, "Expect property name.");
+        std::shared_ptr<Expr> value = nullptr;
+        if (match({TokenType::COLON})) {
+           value = pattern();
+        } else {
+           value = std::make_shared<Variable>(key);
+        }
+        fields[key.lexeme] = value;
+      } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACE, "Expect '}' after object pattern.");
+    return std::make_shared<ObjectExpr>(fields);
+  }
+
   throw std::runtime_error("Expect pattern.");
 }
 
@@ -478,24 +498,60 @@ std::shared_ptr<Expr> Parser::primary() {
     return std::make_shared<This>(previous());
 
   if (match({TokenType::IDENTIFIER})) {
-    return std::make_shared<Variable>(previous());
+    Token name = previous();
+    if (match({TokenType::FAT_ARROW})) {
+      std::vector<Parameter> parameters;
+      parameters.push_back(Parameter(name, nullptr));
+      
+      std::vector<std::shared_ptr<Stmt>> body;
+      bool isExpressionBody = false;
+      if (match({TokenType::LEFT_BRACE})) {
+        body = block();
+      } else {
+        isExpressionBody = true;
+        Token returnKeyword(TokenType::RETURN, "return", std::monostate{}, previous().line);
+        body.push_back(std::make_shared<Return>(returnKeyword, expression()));
+      }
+      return std::make_shared<ArrowFunction>(parameters, body, isExpressionBody);
+    }
+    return std::make_shared<Variable>(name);
   }
 
   if (match({TokenType::FN})) {
     consume(TokenType::LEFT_PAREN, "Expect '(' after 'fn'.");
-    std::vector<Token> parameters;
+    std::vector<Parameter> parameters;
     if (!check(TokenType::RIGHT_PAREN)) {
       do {
-        if (parameters.size() >= 255) {
+        Token name = consume(TokenType::IDENTIFIER, "Expect parameter name.");
+        std::shared_ptr<Expr> defaultValue = nullptr;
+        if (match({TokenType::EQUAL})) {
+          defaultValue = expression();
         }
-        parameters.push_back(
-            consume(TokenType::IDENTIFIER, "Expect parameter name."));
+        parameters.push_back(Parameter(name, defaultValue));
       } while (match({TokenType::COMMA}));
     }
     consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
     consume(TokenType::LEFT_BRACE, "Expect '{' before lambda body.");
     std::vector<std::shared_ptr<Stmt>> body = block();
     return std::make_shared<FunctionExpr>(parameters, body);
+  }
+
+  if (match({TokenType::LEFT_BRACE})) {
+    std::map<std::string, std::shared_ptr<Expr>> fields;
+    if (!check(TokenType::RIGHT_BRACE)) {
+      do {
+        Token key = consume(TokenType::IDENTIFIER, "Expect property name.");
+        std::shared_ptr<Expr> value = nullptr;
+        if (match({TokenType::COLON})) {
+           value = expression();
+        } else {
+           value = std::make_shared<Variable>(key);
+        }
+        fields[key.lexeme] = value;
+      } while (match({TokenType::COMMA}));
+    }
+    consume(TokenType::RIGHT_BRACE, "Expect '}' after object literal.");
+    return std::make_shared<ObjectExpr>(fields);
   }
 
   if (match({TokenType::LEFT_BRACKET})) {
@@ -508,6 +564,65 @@ std::shared_ptr<Expr> Parser::primary() {
     }
     consume(TokenType::RIGHT_BRACKET, "Expect ']' after array elements.");
     return std::make_shared<Array>(elements);
+  }
+
+  if (check(TokenType::LEFT_PAREN)) {
+    int tempCurrent = current;
+    int parenCount = 0;
+    bool isArrow = false;
+    while (tempCurrent < tokens.size()) {
+      if (tokens[tempCurrent].type == TokenType::LEFT_PAREN) parenCount++;
+      else if (tokens[tempCurrent].type == TokenType::RIGHT_PAREN) {
+        parenCount--;
+        if (parenCount == 0) {
+          if (tempCurrent + 1 < (int)tokens.size() && tokens[tempCurrent + 1].type == TokenType::FAT_ARROW) {
+            isArrow = true;
+          }
+          break;
+        }
+      }
+      tempCurrent++;
+    }
+
+    if (isArrow) {
+      consume(TokenType::LEFT_PAREN, "Expect '('.");
+      std::vector<Parameter> parameters;
+      if (!check(TokenType::RIGHT_PAREN)) {
+        do {
+          Token name = consume(TokenType::IDENTIFIER, "Expect parameter name.");
+          std::shared_ptr<Expr> defaultValue = nullptr;
+          if (match({TokenType::EQUAL})) {
+            defaultValue = expression();
+          }
+          parameters.push_back(Parameter(name, defaultValue));
+        } while (match({TokenType::COMMA}));
+      }
+      consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
+      consume(TokenType::FAT_ARROW, "Expect '=>' after parameters.");
+
+      std::vector<std::shared_ptr<Stmt>> body;
+      bool isExpressionBody = false;
+      if (match({TokenType::LEFT_BRACE})) {
+        body = block();
+      } else {
+        isExpressionBody = true;
+        Token returnKeyword(TokenType::RETURN, "return", std::monostate{}, previous().line);
+        body.push_back(std::make_shared<Return>(returnKeyword, expression()));
+      }
+      return std::make_shared<ArrowFunction>(parameters, body, isExpressionBody);
+    }
+  }
+
+  if (match({TokenType::NEW})) {
+    std::shared_ptr<Expr> expr = primary();
+    if (Call *c = dynamic_cast<Call *>(expr.get())) {
+        return expr; 
+    }
+    if (Variable *v = dynamic_cast<Variable *>(expr.get())) {
+        consume(TokenType::LEFT_PAREN, "Expect '(' after class name.");
+        return finishCall(expr);
+    }
+    throw std::runtime_error("Expect class name after 'new'.");
   }
 
   if (match({TokenType::LEFT_PAREN})) {
