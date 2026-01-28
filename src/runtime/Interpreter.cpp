@@ -640,6 +640,41 @@ Interpreter::Interpreter() {
          return Value(std::sqrt(std::get<double>(args[0])));
       });
    fskInstance->fields["PI"] = Value(3.14159265358979323846);
+
+    fskInstance->fields["trim"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return args[0];
+         std::string s = std::get<std::string>(args[0]);
+         if (s.empty()) return args[0];
+         s.erase(0, s.find_first_not_of(" \t\r\n"));
+         if (s.empty()) return Value(std::string(""));
+         s.erase(s.find_last_not_of(" \t\r\n") + 1);
+         return Value(s);
+      });
+
+    fskInstance->fields["startsWith"] = std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0]) || 
+             !std::holds_alternative<std::string>(args[1])) {
+              return Value(false);
+         }
+         std::string s = std::get<std::string>(args[0]);
+         std::string prefix = std::get<std::string>(args[1]);
+         if (prefix.length() > s.length()) return Value(false);
+         return Value(s.compare(0, prefix.length(), prefix) == 0);
+      });
+
+    fskInstance->fields["endsWith"] = std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0]) || 
+             !std::holds_alternative<std::string>(args[1])) {
+              return Value(false);
+         }
+         std::string s = std::get<std::string>(args[0]);
+         std::string suffix = std::get<std::string>(args[1]);
+         if (suffix.length() > s.length()) return Value(false);
+         return Value(s.compare(s.length() - suffix.length(), suffix.length(), suffix) == 0);
+      });
    fskInstance->fields["E"] = Value(2.71828182845904523536);
 
    auto wsNInstance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>()));
