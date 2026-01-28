@@ -515,6 +515,24 @@ Interpreter::Interpreter() {
         return Value((double)pos);
       });
 
+  fskInstance->fields["split"] = std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+        if (!std::holds_alternative<std::string>(args[0]) ||
+            !std::holds_alternative<std::string>(args[1])) {
+          throw std::runtime_error("split: (str, delimiter) required.");
+        }
+        std::string s = std::get<std::string>(args[0]);
+        std::string delimiter = std::get<std::string>(args[1]);
+        std::vector<Value> parts;
+        size_t start = 0, end;
+        while ((end = s.find(delimiter, start)) != std::string::npos) {
+          parts.push_back(Value(s.substr(start, end - start)));
+          start = end + delimiter.length();
+        }
+        parts.push_back(Value(s.substr(start)));
+        return Value(std::make_shared<FSKArray>(parts));
+      });
+
   fskInstance->fields["length"] = std::make_shared<NativeFunction>(
       1, [](Interpreter &interp, std::vector<Value> args) {
          if (std::holds_alternative<std::string>(args[0])) {
@@ -568,13 +586,37 @@ Interpreter::Interpreter() {
         return Value(res == 0);
      });
 
-   fskInstance->fields["exists"] = std::make_shared<NativeFunction>(
-     1, [](Interpreter &interp, std::vector<Value> args) {
-        if (!std::holds_alternative<std::string>(args[0])) return Value(false);
-        std::string path = std::get<std::string>(args[0]);
-        std::ifstream f(path);
-        return Value(f.good());
-     });
+    fskInstance->fields["exists"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return Value(false);
+         std::string path = std::get<std::string>(args[0]);
+         std::ifstream f(path);
+         return Value(f.good());
+      });
+
+    fskInstance->fields["readFile"] = std::make_shared<NativeFunction>(
+      1, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0])) return Value(std::string(""));
+         std::string path = std::get<std::string>(args[0]);
+         std::ifstream f(path);
+         if (!f.is_open()) return Value(std::string(""));
+         std::stringstream buffer;
+         buffer << f.rdbuf();
+         return Value(buffer.str());
+      });
+
+    fskInstance->fields["writeFile"] = std::make_shared<NativeFunction>(
+      2, [](Interpreter &interp, std::vector<Value> args) {
+         if (!std::holds_alternative<std::string>(args[0]) || 
+             !std::holds_alternative<std::string>(args[1])) return Value(false);
+         std::string path = std::get<std::string>(args[0]);
+         std::string content = std::get<std::string>(args[1]);
+         std::ofstream f(path);
+         if (!f.is_open()) return Value(false);
+         f << content;
+         f.close();
+         return Value(true);
+      });
 
 
    fskInstance->fields["sin"] = std::make_shared<NativeFunction>(
@@ -640,7 +682,8 @@ Interpreter::Interpreter() {
 
             if (args.size() == 2) { // 1 Arg
                 if (std::holds_alternative<double>(args[1])) {
-                    int32_t res = fsk_ffi_call_int_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]));
+                    uint32_t val = (uint32_t)std::get<double>(args[1]);
+                    int32_t res = fsk_ffi_call_int_int(id, symbol.c_str(), (int32_t)val);
                     return Value((double)res);
                 } else if (std::holds_alternative<std::string>(args[1])) {
                     fsk_ffi_call_void_string(id, symbol.c_str(), std::get<std::string>(args[1]).c_str());
@@ -659,40 +702,40 @@ Interpreter::Interpreter() {
                     fsk_ffi_call_void_int_int_string(id, symbol.c_str(), 
                         (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), std::get<std::string>(args[3]).c_str());
                 } else {
-                    fsk_ffi_call_void_4int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), 0);
+                    fsk_ffi_call_void_4int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)(uint32_t)std::get<double>(args[3]));
                 }
                 return Value(std::monostate{});
             }
 
-            if (args.size() == 5) { 
+            if (args.size() == 5) { // 4 Args
                  if (symbol == "DrawCircle" && std::holds_alternative<double>(args[3])) {
-                     fsk_ffi_call_void_2int_float_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (float)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]));
+                     fsk_ffi_call_void_2int_float_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (float)std::get<double>(args[3]), (int32_t)(uint32_t)std::get<double>(args[4]));
                  } else {
-                     fsk_ffi_call_void_4int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]));
+                     fsk_ffi_call_void_4int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)(uint32_t)std::get<double>(args[4]));
                  }
                  return Value(std::monostate{});
             }
 
-            if (args.size() == 6) { 
+            if (args.size() == 6) { // 5 Args
                 if (symbol == "DrawText") {
-                    fsk_ffi_call_void_string_4int(id, symbol.c_str(), std::get<std::string>(args[1]).c_str(), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]));
+                    fsk_ffi_call_void_string_4int(id, symbol.c_str(), std::get<std::string>(args[1]).c_str(), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)(uint32_t)std::get<double>(args[5]));
                 } else {
-                    fsk_ffi_call_void_5int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]));
+                    fsk_ffi_call_void_5int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)(uint32_t)std::get<double>(args[5]));
                 }
                 return Value(std::monostate{});
             }
 
-            if (args.size() == 7) { 
-                fsk_ffi_call_void_6int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]), (int32_t)std::get<double>(args[6]));
+            if (args.size() == 7) { // 6 Args
+                fsk_ffi_call_void_6int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]), (int32_t)(uint32_t)std::get<double>(args[6]));
                 return Value(std::monostate{});
             }
 
-            if (args.size() == 8) { 
+            if (args.size() == 8) { // 7 Args -> DrawTriangle(x1, y1, x2, y2, x3, y3, color)
                 fsk_ffi_call_void_8int(id, symbol.c_str(), 
                     (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]),
                     (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]),
                     (int32_t)std::get<double>(args[5]), (int32_t)std::get<double>(args[6]),
-                    (int32_t)std::get<double>(args[7]), 0);
+                    (int32_t)(uint32_t)std::get<double>(args[7]), 0); // 8th is padding
                 return Value(std::monostate{});
             }
 
@@ -1834,6 +1877,25 @@ void Interpreter::visitGetExpr(Get &expr) {
               return Value(std::monostate{});
             Value v = arr->elements.back();
             arr->elements.pop_back();
+            return v;
+          });
+      return;
+    }
+    if (expr.name.lexeme == "pushFront") {
+      lastValue = std::make_shared<NativeFunction>(
+          1, [arr](Interpreter &interp, std::vector<Value> args) {
+            arr->elements.insert(arr->elements.begin(), args[0]);
+            return args[0];
+          });
+      return;
+    }
+    if (expr.name.lexeme == "popFront") {
+      lastValue = std::make_shared<NativeFunction>(
+          0, [arr](Interpreter &interp, std::vector<Value> args) {
+            if (arr->elements.empty())
+              return Value(std::monostate{});
+            Value v = arr->elements.front();
+            arr->elements.erase(arr->elements.begin());
             return v;
           });
       return;
