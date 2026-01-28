@@ -1,0 +1,17 @@
+import "std/gui.fsk";
+
+print "Launching GUI...";
+
+let win = new Window(800, 450, "Fsk Raylib Demo");
+
+while (!win.shouldClose()) {
+    win.beginDrawing();
+    
+    win.drawFPS(10, 10);
+    
+    
+    win.endDrawing();
+}
+
+win.close();
+print "GUI Closed.";

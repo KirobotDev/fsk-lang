@@ -34,8 +34,8 @@ Makefile
 # Rust / Cargo              #
 #############################
 
-fsk-core/target/
-fsk-core/Cargo.lock
+**/target/
+Cargo.lock
 
 #############################
 # Logs & Debug              #
@@ -54,3 +54,5 @@ fsk_rust.db
 .DS_Store
 fsk
 web/
+raylib/
+gui-designer/

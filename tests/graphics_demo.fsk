@@ -1,0 +1,38 @@
+
+import "std/gui.fsk";
+
+let win = Window(800, 450, "Fsk Graphics Demo 🎨");
+
+let posX = 400;
+let posY = 225;
+let radius = 40;
+let ballColor = BLUE;
+
+print "Controls: Use Arrow Keys to move the ball!";
+
+while (!win.shouldClose()) {
+    if (win.isKeyDown(263)) posX = posX - 5; // Left
+    if (win.isKeyDown(262)) posX = posX + 5; // Right
+    if (win.isKeyDown(265)) posY = posY - 5; // Up
+    if (win.isKeyDown(264)) posY = posY + 5; // Down
+
+    if (posX < 0) posX = 0;
+    if (posX > 800) posX = 800;
+
+    win.beginDrawing();
+    win.clearBackground(RAYWHITE);
+
+    win.drawText("Fsk Creative Coding", 20, 20, 20, DARKGRAY);
+    win.drawText("Move with Arrow Keys", 20, 50, 15, GRAY);
+
+    win.drawLine(100, 100, 700, 100, RED);
+    win.drawRectangle(50, 300, 100, 100, GRAY);
+    win.drawCircle(posX, posY, radius, ballColor);
+    
+    win.drawTriangle(100, 300, 50, 250, 150, 250, RED);
+
+    win.drawFPS(700, 10);
+    win.endDrawing();
+}
+
+win.close();

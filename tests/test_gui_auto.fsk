@@ -1,0 +1,21 @@
+import "std/gui.fsk";
+
+print "Launching GUI Auto Test...";
+
+let win = new Window(400, 300, "Fsk Auto Test");
+let frames = 0;
+
+while (!win.shouldClose()) {
+    win.beginDrawing();
+    win.drawFPS(10, 10);
+    win.endDrawing();
+    
+    frames = frames + 1;
+    if (frames > 60) {
+        print "Played 60 frames. Exiting.";
+        break;
+    }
+}
+
+win.close();
+print "GUI Test Passed.";

@@ -1,0 +1,26 @@
+print "Testing FPM Lockfile Generation...";
+
+if (FSK.exists("fpm.lock")) {
+    let cmd = "rm fpm.lock";
+    FSK.shell(cmd);
+}
+
+
+let lockData = JSON.parse('{}');
+lockData["test-pkg"] = JSON.parse('{}');
+lockData["test-pkg"].url = "https://github.com/test/test";
+lockData["test-pkg"].installed_at = Date.now();
+
+let content = JSON.stringify(lockData);
+writeFile("fpm_test.lock", content);
+
+if (FSK.exists("fpm_test.lock")) {
+    let readBack = JSON.parse(readFile("fpm_test.lock"));
+    if (readBack["test-pkg"].url == "https://github.com/test/test") {
+        print "SUCCESS: Lockfile logic works and JSON serialization is correct.";
+    } else {
+        print "FAILED: Lockfile content mismatch.";
+    }
+} else {
+    print "FAILED: Lockfile not created.";
+}

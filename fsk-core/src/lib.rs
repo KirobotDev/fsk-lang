@@ -5,6 +5,7 @@ pub mod crypto;
 pub mod system;
 pub mod sql;
 pub mod vm;
+pub mod ffi;
 
 pub use http::*;
 pub use utils::*;

@@ -270,6 +270,9 @@ void Lexer::scanTokenInternal() {
   case '*':
     addToken(TokenType::STAR);
     break;
+  case '%':
+    addToken(TokenType::PERCENT);
+    break;
   case '!':
     addToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
     break;

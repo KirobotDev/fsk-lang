@@ -1,0 +1,58 @@
+
+import "std/gui.fsk";
+
+let win = Window(800, 600, "Fsk Mini-Game: Catch the Squares! 🟩");
+
+let playerX = 375;
+let playerY = 500;
+let playerSize = 50;
+let score = 0;
+
+let enemyX = 400;
+let enemyY = 0;
+let enemySize = 30;
+let enemySpeed = 5;
+
+print "Controls: Use Left/Right arrows to catch the falling square!";
+
+while (!win.shouldClose()) {
+    if (win.isKeyDown(KEY_LEFT)) playerX = playerX - 7;
+    if (win.isKeyDown(KEY_RIGHT)) playerX = playerX + 7;
+
+    enemyY = enemyY + enemySpeed;
+
+    if (playerX < 0) playerX = 0;
+    if (playerX > 750) playerX = 750;
+
+    if (enemyY + enemySize > playerY and 
+        enemyX + enemySize > playerX and 
+        enemyX < playerX + playerSize) {
+        
+        score = score + 1;
+        print "Caught! Score: " + score;
+        enemyY = -50;
+        enemyX = 50 + (score * 77) % 700; 
+        enemySpeed = enemySpeed + 0.5; 
+    }
+
+    if (enemyY > 600) {
+        print "Missed! Final Score: " + score;
+        score = 0;
+        enemyY = -50;
+        enemyX = 100;
+        enemySpeed = 5;
+    }
+
+    win.beginDrawing();
+    win.clearBackground(RAYWHITE);
+
+    win.drawText("Score: " + score, 10, 10, 25, DARKGRAY);
+    
+    win.drawRectangle(playerX, playerY, playerSize, playerSize, BLUE);
+    
+    win.drawRectangle(enemyX, enemyY, enemySize, enemySize, RED);
+
+    win.endDrawing();
+}
+
+win.close();

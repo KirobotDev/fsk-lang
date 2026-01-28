@@ -16,6 +16,7 @@ enum class TokenType {
   SEMICOLON,
   SLASH,
   STAR,
+  PERCENT,
   ARROW, 
   FAT_ARROW,
   COLON, 

@@ -1,0 +1,11 @@
+class Foo {
+    fn init() {
+        print "In Constructor";
+        this.vals = "Hello";
+        print this.vals;
+    }
+}
+
+print "Defining Class Done";
+let f = new Foo();
+print "Instance Created";

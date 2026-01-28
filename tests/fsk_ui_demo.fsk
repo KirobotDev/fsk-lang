@@ -1,0 +1,43 @@
+
+import "std/gui.fsk";
+
+let win = Window(800, 450, "FskUI Premium Demo");
+
+let layout = Column(100, 40, 20);
+layout.add(Label(0, 0, "Fsk Modern UI Framework", 30, DARKGRAY));
+
+let btn1 = Button(0, 0, 200, 50, "Click Me!");
+let btn2 = Button(0, 0, 200, 50, "Reset Count");
+let statusLabel = Label(400, 110, "Clicks: 0", 25, BLUE);
+
+layout.add(btn1);
+layout.add(btn2);
+
+let count = 0;
+
+while (!win.shouldClose()) {
+    // Logic
+    if (btn1.update(win)) {
+        count = count + 1;
+        statusLabel.text = "Clicks: " + count;
+        print "Button 1 clicked! Total: " + count;
+    }
+
+    if (btn2.update(win)) {
+        count = 0;
+        statusLabel.text = "Clicks: 0";
+        print "Button 2 clicked! Resetting count.";
+    }
+
+    // Drawing
+    win.beginDrawing();
+    win.clearBackground(RAYWHITE);
+
+    layout.draw(win);
+    statusLabel.draw(win);
+
+    win.drawFPS(10, 10);
+    win.endDrawing();
+}
+
+win.close();

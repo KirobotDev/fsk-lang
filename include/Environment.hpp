@@ -5,13 +5,16 @@
 #include <stdexcept>
 #include <string>
 #include <variant>
+#include <iostream>
 
 class Environment : public std::enable_shared_from_this<Environment> {
 public:
   Environment() : enclosing(nullptr) {}
   Environment(std::shared_ptr<Environment> enclosing) : enclosing(enclosing) {}
 
-  void define(std::string name, Value value) { values[name] = value; }
+  void define(std::string name, Value value) { 
+      values[name] = value; 
+  }
 
   Value get(Token name) { return get(name.lexeme); }
 

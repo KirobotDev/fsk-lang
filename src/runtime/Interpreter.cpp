@@ -83,6 +83,22 @@ extern "C" {
     char* fsk_sql_query(uint32_t db_id, const char* query);
 
     void fsk_vm_run(const uint8_t* bytecode, size_t bytecode_len, const double* constants, size_t constants_len);
+
+    uint64_t fsk_ffi_open(const char* path);
+    int32_t fsk_ffi_call_void_string(uint64_t lib_id, const char* symbol, const char* arg);
+    int32_t fsk_ffi_call_void_string(uint64_t lib_id, const char* symbol, const char* arg);
+    int32_t fsk_ffi_call_int_int(uint64_t lib_id, const char* symbol, int32_t arg);
+
+    void fsk_ffi_call_void(uint64_t lib_id, const char* symbol);
+    bool fsk_ffi_call_bool(uint64_t lib_id, const char* symbol);
+    void fsk_ffi_call_void_int_int_string(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2, const char* a3);
+    void fsk_ffi_call_void_int_int(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2);
+    void fsk_ffi_call_void_4int(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2, int32_t a3, int32_t a4);
+    void fsk_ffi_call_void_5int(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5);
+    void fsk_ffi_call_void_6int(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6);
+    void fsk_ffi_call_void_8int(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8);
+    void fsk_ffi_call_void_2int_float_int(uint64_t lib_id, const char* symbol, int32_t a1, int32_t a2, float a3, int32_t a4);
+    void fsk_ffi_call_void_string_4int(uint64_t lib_id, const char* symbol, const char* s1, int32_t a2, int32_t a3, int32_t a4, int32_t a5);
 }
 #endif
 
@@ -140,6 +156,16 @@ json valueToJson(Value v) {
     }
     return nullptr;
 }
+
+class LibraryCallable : public Callable {
+public:
+    uint64_t libId;
+    LibraryCallable(uint64_t id) : libId(id) {}
+
+    int arity() override { return 0; }
+    Value call(Interpreter &interpreter, std::vector<Value> arguments) override { return Value(0.0); }
+    std::string toString() override { return "<Native Library>"; }
+};
 
 Interpreter::Interpreter() {
   eventLoop = std::make_shared<EventLoop>();
@@ -589,6 +615,111 @@ Interpreter::Interpreter() {
    globals->define("WS", wsNInstance);
 
   globals->define("FSK", fskInstance);
+
+   auto ffiClass = std::make_shared<FSKClass>("FFI", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto ffiInstance = std::make_shared<FSKInstance>(ffiClass);
+
+   ffiInstance->fields["open"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("FFI.open requires path");
+       std::string path = std::get<std::string>(args[0]);
+       
+       uint64_t id = fsk_ffi_open(path.c_str());
+       if (id == 0) return Value(false);
+
+       auto libClass = std::make_shared<FSKClass>("Library", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+       auto libInst = std::make_shared<FSKInstance>(libClass);
+              // lib.call("symbol", ...args)
+        libInst->fields["call"] = std::make_shared<NativeFunction>(-1, [id](Interpreter &interp, std::vector<Value> args) {
+            if (args.empty() || !std::holds_alternative<std::string>(args[0])) throw std::runtime_error("Lib.call requires symbol");
+            std::string symbol = std::get<std::string>(args[0]);
+            
+            if (args.size() == 1) { // 0 Args
+                fsk_ffi_call_void(id, symbol.c_str());
+                return Value(std::monostate{}); 
+            }
+
+            if (args.size() == 2) { // 1 Arg
+                if (std::holds_alternative<double>(args[1])) {
+                    int32_t res = fsk_ffi_call_int_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]));
+                    return Value((double)res);
+                } else if (std::holds_alternative<std::string>(args[1])) {
+                    fsk_ffi_call_void_string(id, symbol.c_str(), std::get<std::string>(args[1]).c_str());
+                    return Value(std::monostate{});
+                }
+            }
+
+            if (args.size() == 3) { // 2 Args (int, int)
+                fsk_ffi_call_void_int_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]));
+                return Value(std::monostate{});
+            }
+
+            // 3 Args (int, int, string) or (int, int, int)
+            if (args.size() == 4) {
+                if (std::holds_alternative<std::string>(args[3])) {
+                    fsk_ffi_call_void_int_int_string(id, symbol.c_str(), 
+                        (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), std::get<std::string>(args[3]).c_str());
+                } else {
+                    fsk_ffi_call_void_4int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), 0);
+                }
+                return Value(std::monostate{});
+            }
+
+            if (args.size() == 5) { 
+                 if (symbol == "DrawCircle" && std::holds_alternative<double>(args[3])) {
+                     fsk_ffi_call_void_2int_float_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (float)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]));
+                 } else {
+                     fsk_ffi_call_void_4int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]));
+                 }
+                 return Value(std::monostate{});
+            }
+
+            if (args.size() == 6) { 
+                if (symbol == "DrawText") {
+                    fsk_ffi_call_void_string_4int(id, symbol.c_str(), std::get<std::string>(args[1]).c_str(), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]));
+                } else {
+                    fsk_ffi_call_void_5int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]));
+                }
+                return Value(std::monostate{});
+            }
+
+            if (args.size() == 7) { 
+                fsk_ffi_call_void_6int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]), (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]), (int32_t)std::get<double>(args[5]), (int32_t)std::get<double>(args[6]));
+                return Value(std::monostate{});
+            }
+
+            if (args.size() == 8) { 
+                fsk_ffi_call_void_8int(id, symbol.c_str(), 
+                    (int32_t)std::get<double>(args[1]), (int32_t)std::get<double>(args[2]),
+                    (int32_t)std::get<double>(args[3]), (int32_t)std::get<double>(args[4]),
+                    (int32_t)std::get<double>(args[5]), (int32_t)std::get<double>(args[6]),
+                    (int32_t)std::get<double>(args[7]), 0);
+                return Value(std::monostate{});
+            }
+
+            return Value(0.0);
+        });
+        libInst->fields["callBool"] = std::make_shared<NativeFunction>(-1, [id](Interpreter &interp, std::vector<Value> args) {
+            if (args.empty() || !std::holds_alternative<std::string>(args[0])) throw std::runtime_error("Lib.callBool requires symbol");
+            std::string symbol = std::get<std::string>(args[0]);
+            
+            if (args.size() == 1) {
+                return Value(fsk_ffi_call_bool(id, symbol.c_str()));
+            }
+
+            if (args.size() == 2) {
+                if (std::holds_alternative<double>(args[1])) {
+                    int32_t res = fsk_ffi_call_int_int(id, symbol.c_str(), (int32_t)std::get<double>(args[1]));
+                    return Value(res != 0);
+                }
+            }
+
+            return Value(false);
+        });
+
+       return Value(libInst);
+   });
+
+   globals->define("FFI", ffiInstance);
 
 
   auto consoleClass = std::make_shared<FSKClass>("Console", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
@@ -1587,6 +1718,9 @@ void Interpreter::visitBinaryExpr(Binary &expr) {
   case TokenType::STAR:
     lastValue = std::get<double>(left) * std::get<double>(right);
     break;
+  case TokenType::PERCENT:
+    lastValue = fmod(std::get<double>(left), std::get<double>(right));
+    break;
   case TokenType::PIPE:
     if (std::holds_alternative<std::shared_ptr<Callable>>(right)) {
         auto function = std::get<std::shared_ptr<Callable>>(right);
@@ -1649,7 +1783,7 @@ void Interpreter::visitCallExpr(Call &expr) {
     int min = function->minArity();
     int max = function->maxArity();
     
-    if (arguments.size() < (size_t)min || (max != -1 && arguments.size() > (size_t)max)) {
+    if ((min != -1 && arguments.size() < (size_t)min) || (max != -1 && arguments.size() > (size_t)max)) {
       if (min == max) {
         throw std::runtime_error("Expected " + std::to_string(min) +
                                  " arguments but got " +
@@ -2262,4 +2396,43 @@ extern "C" void fsk_on_ws_message(uint32_t ws_id, const char* message, void* con
             std::get<std::shared_ptr<Callable>>(handler)->call(*interp, {Value(wsInst), Value(msg)});
         }
     });
+}
+
+Value FunctionCallable::call(Interpreter &interpreter,
+                             std::vector<Value> arguments) {
+  std::shared_ptr<Environment> environment =
+      std::make_shared<Environment>(closure);
+  
+  for (size_t i = 0; i < declaration->params.size(); ++i) {
+    Value val;
+    if (i < arguments.size()) {
+      val = arguments[i];
+    } else if (declaration->params[i].defaultValue != nullptr) {
+      val = interpreter.evaluate(declaration->params[i].defaultValue);
+    } else {
+      val = std::monostate{};
+    }
+    environment->define(declaration->params[i].name.lexeme, val);
+  }
+
+  try {
+    interpreter.executeBlock(declaration->body, environment);
+  } catch (const Value &returnValue) {
+    return returnValue;
+  }
+
+  return std::monostate{};
+}
+
+
+Value FSKClass::call(Interpreter &interpreter, std::vector<Value> arguments) {
+  auto instance = std::make_shared<FSKInstance>(shared_from_this());
+
+  std::shared_ptr<FunctionCallable> initializer = findMethod("init");
+  if (initializer != nullptr) {
+    auto boundConstructor = initializer->bind(instance); 
+    boundConstructor->call(interpreter, arguments);
+  }
+
+  return instance;
 }

@@ -1,0 +1,217 @@
+
+class Color {
+    fn init(r, g, b, a) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
+    }
+    
+    fn pack() {
+        return this.r + (this.g * 256) + (this.b * 65536) + (this.a * 16777216);
+    }
+}
+
+let RAYWHITE = Color(245, 245, 245, 255);
+let WHITE    = Color(255, 255, 255, 255);
+let BLACK    = Color(0, 0, 0, 255);
+let BLUE     = Color(0, 121, 241, 255);
+let GRAY     = Color(130, 130, 130, 255);
+let DARKGRAY = Color(80, 80, 80, 255);
+let RED      = Color(230, 41, 55, 255);
+
+let KEY_RIGHT = 262;
+let KEY_LEFT  = 263;
+let KEY_DOWN  = 264;
+let KEY_UP    = 265;
+let KEY_A     = 65;
+let KEY_S     = 83;
+let KEY_D     = 68;
+let KEY_W     = 87;
+let KEY_SPACE = 32;
+let KEY_ENTER = 257;
+let KEY_ESCAPE = 256;
+
+class Window {
+    fn init(width, height, title) {
+        this.lib = FFI.open("libraylib.so");
+        if (!this.lib) this.lib = FFI.open("libraylib.so.4"); 
+        if (!this.lib) this.lib = FFI.open("libraylib.so.5");
+        if (!this.lib) this.lib = FFI.open("/usr/lib/x86_64-linux-gnu/libraylib.so");
+        if (!this.lib) this.lib = FFI.open("/usr/local/lib/libraylib.so");
+
+        if (!this.lib) {
+            print "ERROR: Could not load raylib.";
+            return;
+        }
+
+        this.lib.call("InitWindow", width, height, title);
+        this.lib.call("SetTargetFPS", 60);
+    }
+    
+    fn shouldClose() {
+        if (!this.lib) return true;
+        return this.lib.callBool("WindowShouldClose");
+    }
+    
+    fn beginDrawing() {
+        if (!this.lib) return;
+        this.lib.call("BeginDrawing");
+    }
+    
+    fn endDrawing() {
+        if (!this.lib) return;
+        this.lib.call("EndDrawing");
+    }
+    
+    fn clearBackground(color) {
+        if (!this.lib) return;
+        this.lib.call("ClearBackground", color.pack());
+    }
+    
+    fn drawRectangle(x, y, w, h, color) {
+        if (!this.lib) return;
+        this.lib.call("DrawRectangle", x, y, w, h, color.pack());
+    }
+
+    fn drawCircle(x, y, radius, color) {
+        if (!this.lib) return;
+        this.lib.call("DrawCircle", x, y, radius, color.pack());
+    }
+
+    fn drawLine(x1, y1, x2, y2, color) {
+        if (!this.lib) return;
+        this.lib.call("DrawLine", x1, y1, x2, y2, color.pack());
+    }
+
+    fn drawTriangle(v1x, v1y, v2x, v2y, v3x, v3y, color) {
+        if (!this.lib) return;
+        this.lib.call("DrawTriangle", v1x, v1y, v2x, v2y, v3x, v3y, color.pack());
+    }
+
+    fn drawText(text, x, y, size, color) {
+        if (!this.lib) return;
+        this.lib.call("DrawText", text, x, y, size, color.pack());
+    }
+
+    fn drawFPS(x, y) {
+        if (!this.lib) return;
+        this.lib.call("DrawFPS", x, y);
+    }
+
+    fn getMouseX() {
+        if (!this.lib) return 0;
+        return this.lib.call("GetMouseX");
+    }
+
+    fn getMouseY() {
+        if (!this.lib) return 0;
+        return this.lib.call("GetMouseY");
+    }
+
+    fn isMouseButtonPressed(button) {
+        if (!this.lib) return false;
+        return this.lib.callBool("IsMouseButtonPressed", button);
+    }
+
+    fn isMouseButtonDown(button) {
+        if (!this.lib) return false;
+        return this.lib.callBool("IsMouseButtonDown", button);
+    }
+
+    fn isKeyDown(key) {
+        if (!this.lib) return false;
+        return this.lib.callBool("IsKeyDown", key);
+    }
+
+    fn isKeyPressed(key) {
+        if (!this.lib) return false;
+        return this.lib.callBool("IsKeyPressed", key);
+    }
+
+    fn close() {
+        if (!this.lib) return;
+        this.lib.call("CloseWindow");
+    }
+}
+
+class Button {
+    fn init(x, y, w, h, text) {
+        this.x = x;
+        this.y = y;
+        this.width = w;
+        this.height = h;
+        this.text = text;
+        this.color = BLUE;
+        this.hoverColor = GRAY;
+        this.isHovered = false;
+    }
+
+    fn update(win) {
+        let mx = win.getMouseX();
+        let my = win.getMouseY();
+
+        if (mx > this.x and mx < this.x + this.width and
+            my > this.y and my < this.y + this.height) {
+            this.isHovered = true;
+            return win.isMouseButtonPressed(0);
+        }
+        this.isHovered = false;
+        return false;
+    }
+
+    fn draw(win) {
+        let c = this.color;
+        if (this.isHovered) c = this.hoverColor;
+        
+        win.drawRectangle(this.x, this.y, this.width, this.height, c);
+        win.drawText(this.text, this.x + 10, this.y + 10, 20, WHITE);
+    }
+}
+
+class Label {
+    fn init(x, y, text, size = 20, color = DARKGRAY) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.size = size;
+        this.color = color;
+        this.width = 0; 
+        this.height = size;
+    }
+
+    fn draw(win) {
+        win.drawText(this.text, this.x, this.y, this.size, this.color);
+    }
+}
+
+class Column {
+    fn init(x, y, spacing = 10) {
+        this.x = x;
+        this.y = y;
+        this.spacing = spacing;
+        this.children = [];
+        this.currentY = y;
+    }
+
+    fn add(widget) {
+        widget.x = this.x;
+        widget.y = this.currentY;
+        this.children.push(widget);
+        
+        this.currentY = this.currentY + widget.height + this.spacing;
+    }
+
+    fn update(win) {
+        for (let i = 0; i < this.children.length(); i = i + 1) {
+            let child = this.children[i];
+            if (child.update) child.update(win);
+        }
+    }
+
+    fn draw(win) {
+        for (let i = 0; i < this.children.length(); i = i + 1) {
+            this.children[i].draw(win);
+        }
+    }
+}

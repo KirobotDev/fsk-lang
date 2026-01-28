@@ -389,7 +389,7 @@ std::shared_ptr<Expr> Parser::term() {
 
 std::shared_ptr<Expr> Parser::factor() {
   std::shared_ptr<Expr> expr = unary();
-  while (match({TokenType::SLASH, TokenType::STAR})) {
+  while (match({TokenType::SLASH, TokenType::STAR, TokenType::PERCENT})) {
     Token op = previous();
     std::shared_ptr<Expr> right = unary();
     expr = std::make_shared<Binary>(expr, op, right);

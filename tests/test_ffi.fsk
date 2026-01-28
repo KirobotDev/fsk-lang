@@ -1,0 +1,24 @@
+print "Testing FFI...";
+
+let libName = "libc.so.6";
+let libc = FFI.open(libName);
+
+if (libc) {
+    print "SUCCESS: Loaded " + libName;
+    
+    print "Calling puts via FFI:";
+    libc.call("puts", "Hello from Native LibC!");
+
+    let val = -42;
+    let res = libc.call("abs", val);
+    print "abs(" + val + ") = " + res;
+
+    if (res == 42) {
+        print "TEST PASSED: abs returned correct value.";
+    } else {
+        print "TEST FAILED: abs returned " + res;
+    }
+
+} else {
+    print "FAILED: Could not load " + libName;
+}

@@ -67,13 +67,26 @@ if (argCount < 2) {
                         FSK.mkdir("fsk_modules");
                     }
                     
-                    
                     print "Cloning into fsk_modules...";
                     
                     let cmd = "cd fsk_modules && git clone " + gitUrl;
                     let res = FSK.shell(cmd);
                     print res;
                     print "Installed " + target;
+                    
+                    let lockData = JSON.parse('{}');
+                    if (FSK.exists("fpm.lock")) {
+                         lockData = JSON.parse(readFile("fpm.lock"));
+                    }
+                    
+                    let pkgEntry = JSON.parse('{}');
+                    pkgEntry.url = gitUrl;
+                    pkgEntry.installed_at = Date.now();
+                    pkgEntry.source = isRegistry ? "registry" : "git";
+                    
+                    lockData[target] = pkgEntry;
+                    writeFile("fpm.lock", JSON.stringify(lockData));
+                    print "Updated fpm.lock";
                 }
             }
         }

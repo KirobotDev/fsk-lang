@@ -1,12 +1,14 @@
 #pragma once
 #include "Environment.hpp"
 #include "Token.hpp"
+#include "Stmt.hpp"
 #include <functional>
 #include <map>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
+#include <iostream>
 
 class Interpreter;
 
@@ -33,7 +35,11 @@ struct FunctionCallable : public Callable {
   int maxArity() override { return arity(); }
   Value call(Interpreter &interpreter, std::vector<Value> arguments) override;
   std::string toString() override;
-  std::shared_ptr<FunctionCallable> bind(std::shared_ptr<FSKInstance> instance);
+  std::shared_ptr<FunctionCallable> bind(std::shared_ptr<FSKInstance> instance) {
+      std::shared_ptr<Environment> environment = std::make_shared<Environment>(closure);
+      environment->define("this", instance);
+      return std::make_shared<FunctionCallable>(declaration, environment);
+  }
 };
 
 struct NativeFunction : public Callable {
