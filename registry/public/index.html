@@ -7,69 +7,272 @@
     <title>Fsk - Registry</title>
     <style>
         :root {
-            --bg-color: #ffffff;
-            --text-color: #000000;
-            --sidebar-bg: #e0e0e0;
-            --border-color: #000000;
-            --code-bg: #eeeeee;
-            --header-bg: #ffffff;
-            --primary: #55FFFF;
-            --accent: #FFFF55;
-            --alert: #FF5555;
-            --shadow: 4px 4px 0px #000000;
+
+            --c-bg: #FFFFFF;
+            --c-bg-sub: #F9FAFB;
+            --c-bg-border: #E5E7EB;
+
+            --c-text-primary: #111827;
+            --c-text-secondary: #4B5563;
+            --c-text-tertiary: #9CA3AF;
+
+            --c-brand: #2563EB;
+            --c-brand-light: #EFF6FF;
+            --c-brand-hover: #1D4ED8;
+
+            --c-success: #10B981;
+            --c-error: #EF4444;
+            --c-warning: #F59E0B;
+
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: 'Space Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+            --header-height: 64px;
         }
 
-        [data-theme='dark'] {
-            --bg-color: #0000AA;
-            --text-color: #FFFFFF;
-            --sidebar-bg: #000088;
-            --border-color: #FFFFFF;
-            --code-bg: #000055;
-            --header-bg: #0000AA;
-            --primary: #00AAAA;
-            --accent: #AAAA00;
-            --alert: #AA0000;
-            --shadow: 4px 4px 0px #FFFFFF;
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --c-bg: #030712;
+                --c-bg-sub: #0B0F1A;
+                --c-bg-border: #1F2937;
+
+                --c-text-primary: #F9FAFB;
+                --c-text-secondary: #9CA3AF;
+                --c-text-tertiary: #6B7280;
+
+                --c-brand: #3B82F6;
+                --c-brand-light: #1E3A8A;
+
+                --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            }
         }
 
         * {
             box-sizing: border-box;
-            cursor: crosshair !important;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            padding: 0;
-            color: var(--text-color);
-            background-color: var(--bg-color);
+            font-family: var(--font-sans);
+            background-color: var(--c-bg);
+            color: var(--c-text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            background: linear-gradient(to bottom, var(--c-bg) 0%, var(--c-bg-sub) 100%);
             min-height: 100vh;
         }
 
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(var(--c-bg-border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--c-bg-border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            mask-image: linear-gradient(to bottom, black 0%, transparent 80%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        a {
+            color: var(--c-brand);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--c-brand-hover);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-weight: 600;
+            line-height: 1.25;
+            margin-bottom: 1em;
+            letter-spacing: -0.02em;
+            scroll-margin-top: calc(var(--header-height) + 24px);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            letter-spacing: -0.03em;
+        }
+
+        h2 {
+            font-size: 1.875rem;
+            border-bottom: 1px solid var(--c-bg-border);
+            padding-bottom: 0.5em;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+        }
+
+        code {
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            background: var(--c-bg-sub);
+            border: 1px solid var(--c-bg-border);
+            padding: 0.2em 0.4em;
+            border-radius: var(--radius-sm);
+            color: var(--c-text-primary);
+        }
+
+        pre {
+            background: #1e1e1e !important;
+            padding: 1.5em;
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+            margin: 1.5em 0;
+            border: 1px solid var(--c-bg-border);
+        }
+
+        pre code {
+            background: transparent;
+            border: none;
+            padding: 0;
+            color: #d4d4d4;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.6em 1.2em;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: var(--c-text-primary);
+            color: var(--c-bg);
+            border-color: var(--c-text-primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--c-text-secondary);
+            border-color: var(--c-text-secondary);
+        }
+
+        .btn-secondary {
+            background: var(--c-bg);
+            color: var(--c-text-primary);
+            border-color: var(--c-bg-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--c-bg-sub);
+            border-color: var(--c-text-secondary);
+        }
+
+        .badge {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--c-brand-light);
+            color: var(--c-brand);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.8em;
+            background: var(--c-bg);
+            border: 1px solid var(--c-bg-border);
+            color: var(--c-text-primary);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.95rem;
+            margin-bottom: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--c-brand);
+            box-shadow: 0 0 0 3px var(--c-brand-light);
+        }
+
+        .package-card {
+            background: var(--c-bg);
+            border: 1px solid var(--c-bg-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .package-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--c-brand);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
         header {
-            height: 64px;
-            border-bottom: 4px solid var(--border-color);
+            height: var(--header-height);
+            border-bottom: 1px solid var(--c-bg-border);
             display: flex;
             align-items: center;
-            padding: 0 2rem;
-            background: var(--header-bg);
+            justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
             position: sticky;
             top: 0;
             z-index: 1000;
-            justify-content: space-between;
+        }
+
+        [data-theme='dark'] header {
+            background: rgba(3, 7, 18, 0.8);
         }
 
         header .logo {
-            font-weight: 900;
-            font-size: 1.8rem;
-            color: var(--text-color);
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--c-text-primary);
             text-decoration: none;
-            text-transform: uppercase;
-            border: 2px solid var(--border-color);
-            padding: 4px 12px;
-            box-shadow: 2px 2px 0px var(--border-color);
-            background: var(--primary);
-            color: #000;
+            letter-spacing: -0.02em;
         }
 
         header nav {
@@ -80,131 +283,38 @@
 
         header nav a {
             text-decoration: none;
-            color: var(--text-color);
-            font-weight: 700;
-            font-size: 1.1rem;
-            text-transform: uppercase;
+            color: var(--c-text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
         }
 
         header nav a:hover {
-            text-decoration: underline;
-            background: var(--accent);
-            color: #000;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        h1 {
-            font-size: 3rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            border-bottom: 4px solid var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 2rem;
-        }
-
-        h2 {
-            margin-top: 3rem;
-            font-size: 2rem;
-            border-bottom: 2px solid var(--border-color);
-            text-transform: uppercase;
-        }
-
-        input,
-        select,
-        textarea {
-            background-color: var(--code-bg);
-            color: var(--text-color);
-            padding: 1rem;
-            border: 2px solid var(--border-color);
-            font-family: inherit;
-            font-size: 1.1rem;
-            font-weight: bold;
-            width: 100%;
-            margin-bottom: 1rem;
-            box-shadow: var(--shadow);
-            outline: none;
-        }
-
-        button {
-            background-color: var(--accent);
-            color: #000;
-            padding: 1rem 2rem;
-            border: 4px solid #000;
-            font-size: 1.2rem;
-            font-weight: 900;
-            text-decoration: none;
-            display: inline-block;
-            box-shadow: 4px 4px 0px #000;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        button:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 6px 6px 0px #000;
-        }
-
-        button:active {
-            transform: translate(2px, 2px);
-            box-shadow: none;
-        }
-
-        .package-card {
-            background-color: var(--bg-color);
-            border: 4px solid var(--border-color);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow);
-        }
-
-        .package-card h3 {
-            margin-top: 0;
-            font-size: 1.8rem;
-            color: var(--primary);
-            background: #000;
-            display: inline-block;
-            padding: 2px 10px;
-            color: #fff;
-        }
-
-        .package-url {
-            background: var(--code-bg);
-            padding: 5px 10px;
-            border: 1px dashed var(--border-color);
-            display: inline-block;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-
-        .publish-section {
-            margin-top: 4rem;
-            padding: 2rem;
-            border: 4px dashed var(--border-color);
-            background: var(--sidebar-bg);
+            color: var(--c-brand);
         }
 
         .icon-btn {
-            background: var(--bg-color);
-            border: 2px solid var(--border-color);
-            color: var(--text-color);
-            width: 40px;
-            height: 40px;
+            background: transparent;
+            border: 1px solid var(--c-bg-border);
+            border-radius: var(--radius-md);
+            color: var(--c-text-secondary);
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 2px 2px 0px var(--border-color);
             cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--c-bg-sub);
+            color: var(--c-brand);
+            border-color: var(--c-text-secondary);
         }
 
         .icon-btn svg {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             fill: currentColor;
         }
     </style>
@@ -235,12 +345,7 @@
             <a href="https://fsk.kirosb.fr/syntax">Docs</a>
             <a href="/">Registry</a>
 
-            <button class="icon-btn" onclick="toggleTheme();">
-                <svg viewBox="0 0 24 24">
-                    <path
-                        d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zm-8 8.98c-3.13 0-5.67-2.54-5.67-5.67S8.87 6.33 12 6.33 17.67 8.87 17.67 12 15.13 17.67 12 17.67z" />
-                </svg>
-            </button>
+
         </nav>
     </header>
 
@@ -255,15 +360,16 @@
         <section class="package-list" id="packageList">
         </section>
 
-        <section class="publish-section">
+        <section class="publish-section"
+            style="background: var(--c-bg-sub); padding: 2rem; border-radius: var(--radius-lg); border: 1px dashed var(--c-bg-border);">
             <h2>PUBLISH_PACKAGE</h2>
-            <p>Share your code with the world.</p>
+            <p style="margin-bottom: 1.5rem; color: var(--c-text-secondary);">Share your code with the world.</p>
             <form id="publishForm">
                 <input type="text" id="pName" placeholder="PACKAGE_NAME" required>
                 <input type="url" id="pUrl" placeholder="GIT_URL (e.g. github.com/...)" required>
                 <input type="text" id="pDesc" placeholder="DESCRIPTION">
                 <input type="text" id="pAuthor" placeholder="AUTHOR">
-                <button type="submit">UPLOAD_TO_NETWORK</button>
+                <button type="submit" class="btn btn-primary" style="width:100%">UPLOAD_TO_NETWORK</button>
             </form>
         </section>
     </div>
