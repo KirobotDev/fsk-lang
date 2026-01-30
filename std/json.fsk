@@ -1,0 +1,11 @@
+class JSONLib {
+    fn parse(data) {
+        return JSON.parse(data);
+    }
+
+    fn stringify(obj) {
+        return JSON.stringify(obj);
+    }
+}
+
+let json = new JSONLib();

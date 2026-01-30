@@ -38,8 +38,12 @@ private:
   std::shared_ptr<Expr> nullish();
   std::shared_ptr<Expr> or_expr();
   std::shared_ptr<Expr> and_expr();
+  std::shared_ptr<Expr> bitwise_or();
+  std::shared_ptr<Expr> bitwise_xor();
+  std::shared_ptr<Expr> bitwise_and();
   std::shared_ptr<Expr> equality();
   std::shared_ptr<Expr> comparison();
+  std::shared_ptr<Expr> shift();
   std::shared_ptr<Expr> pipeline();
   std::shared_ptr<Expr> term();
   std::shared_ptr<Expr> factor();

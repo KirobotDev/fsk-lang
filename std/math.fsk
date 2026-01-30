@@ -1,38 +1,21 @@
-class Math {
-  fn init() {
-    this.PI = FSK.PI;
-    this.E = FSK.E;
-  }
-
-  fn max(a, b) {
-    if (a > b) return a;
-    return b;
-  }
-
-  fn min(a, b) {
-    if (a < b) return a;
-    return b;
-  }
-
-  fn pow(base, exponent) {
-    let result = 1;
-    let i = 0;
-    while (i < exponent) {
-      result = result * base;
-      i = i + 1;
+class MathLib {
+    fn sin(x) { return Math.sin(x); }
+    fn cos(x) { return Math.cos(x); }
+    fn sqrt(x) { return Math.sqrt(x); }
+    fn abs(x) { return Math.abs(x); }
+    fn pow(x, y) { return Math.pow(x, y); }
+    
+    fn floor(x) {
+        return x - (x % 1);
     }
-    return result;
-  }
-  
-  fn abs(n) {
-    if (n < 0) return -n;
-    return n;
-  }
 
-  fn sin(x) { return FSK.sin(x); }
-  fn cos(x) { return FSK.cos(x); }
-  fn tan(x) { return FSK.tan(x); }
-  fn sqrt(x) { return FSK.sqrt(x); }
+    fn ceil(x) {
+        let f = this.floor(x);
+        if (f < x) return f + 1;
+        return f;
+    }
 }
 
-let Math = Math(); 
+let math = new MathLib();
+math.PI = Math.PI;
+math.E = Math.E;

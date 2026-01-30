@@ -10,11 +10,13 @@
 #include <thread>
 #include "Utils.hpp"
 #include "EventLoop.hpp"
+#include <raylib.h>
+
 
 class Interpreter : public ExprVisitor, public StmtVisitor {
 public:
   Interpreter();
-  void interpret(std::vector<std::shared_ptr<Stmt>> statements, bool runEventLoop = true);
+  void interpret(std::vector<std::shared_ptr<Stmt>> statements, bool runEventLoop = true, bool replMode = false);
   
   std::shared_ptr<EventLoop> eventLoop;
 
@@ -101,4 +103,8 @@ public:
   bool isWorker = false;
   std::shared_ptr<ThreadSafeQueue<std::string>> workerIncoming;
   std::shared_ptr<ThreadSafeQueue<std::string>> workerOutgoing;
+
+  std::vector<Sound> sounds;
+  std::vector<Texture2D> textures;
+  std::vector<std::string> callStack;
 };

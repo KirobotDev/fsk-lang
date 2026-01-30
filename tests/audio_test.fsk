@@ -1,0 +1,23 @@
+Audio.init();
+
+let soundPath = "./raylib/examples/audio/resources/coin.wav";
+print "Loading sound: " + soundPath;
+
+let coin = Audio.load(soundPath);
+
+if (coin >= 0) {
+    print "Sound loaded successfully! Playing...";
+    Audio.play(coin);
+    
+    FSK.sleep(1000);
+    
+    print "Setting volume to 0.5 and playing again...";
+    Audio.setVolume(coin, 0.5);
+    Audio.play(coin);
+    FSK.sleep(1000);
+} else {
+    print "Failed to load sound.";
+}
+
+Audio.close();
+print "Audio device closed.";

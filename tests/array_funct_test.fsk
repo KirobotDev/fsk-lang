@@ -1,0 +1,19 @@
+let nums = [1, 2, 3, 4, 5];
+
+let squared = nums.map(fn(n) { return n * n; });
+print "Squared: " + squared.length; 
+for (let i = 0; i < squared.length; i = i + 1) {
+    print "squared[" + i + "]: " + squared[i];
+}
+
+let evens = nums.filter(fn(n) { return n % 2 == 0; });
+print "Evens length: " + evens.length;
+for (let i = 0; i < evens.length; i = i + 1) {
+    print "evens[" + i + "]: " + evens[i];
+}
+
+let sum = nums.reduce(fn(acc, n) { return acc + n; }, 0);
+print "Sum: " + sum;
+
+print "forEach test:";
+nums.forEach(fn(n) { print "  Number: " + n; });

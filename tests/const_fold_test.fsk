@@ -1,0 +1,10 @@
+print "--- Constant Folding Test ---";
+
+let x = 10 + 20 * 2; 
+print x; 
+
+
+let y = (100 / 2) + (25 * 4);
+print y; // Should print 150
+
+print "Constant folding verification complete.";

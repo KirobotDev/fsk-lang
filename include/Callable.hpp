@@ -11,6 +11,7 @@
 #include <iostream>
 
 class Interpreter;
+struct FSKInstance;
 
 struct Callable {
   virtual ~Callable() = default;
@@ -20,6 +21,7 @@ struct Callable {
   virtual Value call(Interpreter &interpreter,
                      std::vector<Value> arguments) = 0;
   virtual std::string toString() = 0;
+  virtual std::shared_ptr<Callable> bind(std::shared_ptr<struct FSKInstance> instance) { return nullptr; }
 };
 
 struct FunctionCallable : public Callable {
@@ -35,46 +37,55 @@ struct FunctionCallable : public Callable {
   int maxArity() override { return arity(); }
   Value call(Interpreter &interpreter, std::vector<Value> arguments) override;
   std::string toString() override;
-  std::shared_ptr<FunctionCallable> bind(std::shared_ptr<FSKInstance> instance) {
+  std::shared_ptr<Callable> bind(std::shared_ptr<FSKInstance> instance) override {
       std::shared_ptr<Environment> environment = std::make_shared<Environment>(closure);
-      environment->define("this", instance);
+      environment->define("this", instance); // Fix: define takes value
+      // We need to cast instance to Value? FSKInstance is shared_ptr.
+      // Environment::define expects Value.
+      // Value is variant.
+      // We need to include variant/Value type visibility here?
+      // Value is defined in Expr.hpp which is included via... Stmt.hpp?
+      // Value is std::variant...
       return std::make_shared<FunctionCallable>(declaration, environment);
   }
 };
 
+using NativeCallback = std::function<Value(Interpreter &, std::vector<Value>)>;
+using NativeMethodCallback = std::function<Value(Interpreter &, std::vector<Value>, std::shared_ptr<FSKInstance>)>;
+
 struct NativeFunction : public Callable {
   int _arity;
-  std::function<Value(Interpreter &, std::vector<Value>)> _call;
+  NativeCallback _call;
+  NativeMethodCallback _callMethod;
+  std::shared_ptr<FSKInstance> boundThis;
+
+  NativeFunction(int arity, NativeCallback call);
 
   NativeFunction(int arity,
-                 std::function<Value(Interpreter &, std::vector<Value>)> call)
-      : _arity(arity), _call(call) {}
+                 std::function<Value(Interpreter &, std::vector<Value>, std::shared_ptr<FSKInstance>)> callMethod,
+                 std::shared_ptr<FSKInstance> boundThis);
 
-  int arity() override { return _arity; }
-  Value call(Interpreter &interpreter, std::vector<Value> arguments) override {
-    return _call(interpreter, arguments);
-  }
-  std::string toString() override { return "<native fn>"; }
+  int arity() override;
+  Value call(Interpreter &interpreter, std::vector<Value> arguments) override;
+  std::string toString() override;
+  std::shared_ptr<Callable> bind(std::shared_ptr<FSKInstance> instance) override;
 };
-
-struct FSKInstance;
-
 
 struct FSKClass : public Callable,
                   public std::enable_shared_from_this<FSKClass> {
   std::shared_ptr<FSKClass> superclass;
   std::string name;
-  std::map<std::string, std::shared_ptr<FunctionCallable>> methods;
+  std::map<std::string, std::shared_ptr<Callable>> methods;
 
   FSKClass(std::string name, std::shared_ptr<FSKClass> superclass,
-           std::map<std::string, std::shared_ptr<FunctionCallable>> methods)
+           std::map<std::string, std::shared_ptr<Callable>> methods)
       : name(name), superclass(superclass), methods(methods) {}
 
   int arity() override;
   Value call(Interpreter &interpreter, std::vector<Value> arguments) override;
   std::string toString() override { return name; }
 
-  std::shared_ptr<FunctionCallable> findMethod(std::string name);
+  std::shared_ptr<Callable> findMethod(std::string name);
 };
 
 struct FSKInstance : public std::enable_shared_from_this<FSKInstance> {

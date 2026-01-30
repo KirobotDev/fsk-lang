@@ -1,58 +1,40 @@
+import "lib/sprite.fsk";
+import "lib/scene.fsk";
 
-import "std/gui.fsk";
+print "Starting Fsk Game Demo...";
 
-let win = Window(800, 600, "Fsk Mini-Game: Catch the Squares! 🟩");
+Graphics.init(800, 600, "Fsk Game Framework Demo");
 
-let playerX = 375;
-let playerY = 500;
-let playerSize = 50;
-let score = 0;
+let scene = new Scene();
+let player = new Sprite("hero.png");
 
-let enemyX = 400;
-let enemyY = 0;
-let enemySize = 30;
-let enemySpeed = 5;
+player.setPosition(400, 300);
+scene.add(player);
+Graphics.setTargetFPS(60);
 
-print "Controls: Use Left/Right arrows to catch the falling square!";
+let xVelocity = 2;
+let yVelocity = 2;
 
-while (!win.shouldClose()) {
-    if (win.isKeyDown(KEY_LEFT)) playerX = playerX - 7;
-    if (win.isKeyDown(KEY_RIGHT)) playerX = playerX + 7;
 
-    enemyY = enemyY + enemySpeed;
+let frames = 0;
 
-    if (playerX < 0) playerX = 0;
-    if (playerX > 750) playerX = 750;
+while (!Graphics.shouldClose() and frames < 60) {
+    frames = frames + 1;
+    Graphics.beginDrawing();
+    Graphics.clearBackground(245, 245, 245); 
 
-    if (enemyY + enemySize > playerY and 
-        enemyX + enemySize > playerX and 
-        enemyX < playerX + playerSize) {
-        
-        score = score + 1;
-        print "Caught! Score: " + score;
-        enemyY = -50;
-        enemyX = 50 + (score * 77) % 700; 
-        enemySpeed = enemySpeed + 0.5; 
-    }
+    player.x = player.x + xVelocity;
+    player.y = player.y + yVelocity;
 
-    if (enemyY > 600) {
-        print "Missed! Final Score: " + score;
-        score = 0;
-        enemyY = -50;
-        enemyX = 100;
-        enemySpeed = 5;
-    }
+    if (player.x > 768 or player.x < 0) xVelocity = -xVelocity;
+    if (player.y > 568 or player.y < 0) yVelocity = -yVelocity;
 
-    win.beginDrawing();
-    win.clearBackground(RAYWHITE);
+    scene.update();
+    scene.draw();
 
-    win.drawText("Score: " + score, 10, 10, 25, DARKGRAY);
-    
-    win.drawRectangle(playerX, playerY, playerSize, playerSize, BLUE);
-    
-    win.drawRectangle(enemyX, enemyY, enemySize, enemySize, RED);
-
-    win.endDrawing();
+    Graphics.endDrawing();
 }
 
-win.close();
+player.destroy();
+Graphics.close();
+print "Demo finished.";

@@ -1,0 +1,24 @@
+print "--- VM Compilation & Execution Test ---";
+
+let code = "
+    let x = 10;
+    let y = 5;
+    let z = x + y;
+    print z;
+    
+    if (z > 10) {
+        print 100;
+    } else {
+        print 0;
+    }
+    
+    let i = 0;
+    while (i < 3) {
+        print i;
+        i = i + 1;
+    }
+";
+
+print "Running code on VM...";
+VM.run(code);
+print "VM execution finished.";

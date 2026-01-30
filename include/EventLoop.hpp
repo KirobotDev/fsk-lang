@@ -61,53 +61,63 @@ public:
         cancelledTimerIds.insert(id);
     }
 
-    void run() {
-        while (!stop) {
-            std::function<void()> task;
-            {
-                std::unique_lock<std::mutex> lock(mutex);
+    bool processOne(bool wait) {
+        std::function<void()> task;
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            
+            auto now = std::chrono::steady_clock::now();
+            while (!timers.empty() && timers.top().executeAt <= now) {
+                TimerTask t = timers.top();
+                timers.pop();
                 
-                auto now = std::chrono::steady_clock::now();
-                while (!timers.empty() && timers.top().executeAt <= now) {
-                    TimerTask t = timers.top();
-                    timers.pop();
-                    
-                    if (cancelledTimerIds.count(t.id)) {
-                        cancelledTimerIds.erase(t.id);
-                        continue;
-                    }
-
-                    // Release lock to execute callback
-                    lock.unlock();
-                    t.callback();
-                    lock.lock();
-
-                    if (t.repeat && !cancelledTimerIds.count(t.id)) {
-                        t.executeAt = std::chrono::steady_clock::now() + t.interval;
-                        timers.push(t);
-                    }
-                    now = std::chrono::steady_clock::now();
-                }
-
-                if (!tasks.empty()) {
-                    task = std::move(tasks.front());
-                    tasks.pop();
-                } else {
-                    if (timers.empty() && activeWorkCount == 0) {
-                        break;
-                    }
-
-                    if (timers.empty()) {
-                        cv.wait(lock);
-                    } else {
-                        cv.wait_until(lock, timers.top().executeAt);
-                    }
+                if (cancelledTimerIds.count(t.id)) {
+                    cancelledTimerIds.erase(t.id);
                     continue;
                 }
+
+                lock.unlock();
+                t.callback();
+                lock.lock();
+
+                if (t.repeat && !cancelledTimerIds.count(t.id)) {
+                    t.executeAt = std::chrono::steady_clock::now() + t.interval;
+                    timers.push(t);
+                }
+                now = std::chrono::steady_clock::now();
+                return true; 
             }
 
-            if (task) {
-                task();
+            if (!tasks.empty()) {
+                task = std::move(tasks.front());
+                tasks.pop();
+            } else {
+                if (!wait) return false;
+
+                if (timers.empty() && activeWorkCount == 0) {
+                    return false;
+                }
+
+                if (timers.empty()) {
+                    cv.wait(lock);
+                } else {
+                    cv.wait_until(lock, timers.top().executeAt);
+                }
+                return true; // Woke up, maybe work ready next spin
+            }
+        }
+
+        if (task) {
+            task();
+            return true;
+        }
+        return false;
+    }
+
+    void run() {
+        while (!stop) {
+            if (!processOne(true)) {
+                 if (activeWorkCount == 0 && tasks.empty() && timers.empty()) break;
             }
         }
     }

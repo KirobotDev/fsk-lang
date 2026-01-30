@@ -64,11 +64,15 @@ std::shared_ptr<Stmt> Parser::function(std::string kind, bool isAsync) {
   if (!check(TokenType::RIGHT_PAREN)) {
     do {
       Token name = consume(TokenType::IDENTIFIER, "Expect parameter name.");
+      std::string paramType = "";
+      if (match({TokenType::COLON})) {
+        paramType = consume(TokenType::IDENTIFIER, "Expect parameter type.").lexeme;
+      }
       std::shared_ptr<Expr> defaultValue = nullptr;
       if (match({TokenType::EQUAL})) {
         defaultValue = expression();
       }
-      parameters.push_back(Parameter(name, defaultValue));
+      parameters.push_back(Parameter(name, defaultValue, paramType));
     } while (match({TokenType::COMMA}));
   }
   consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
@@ -337,11 +341,41 @@ std::shared_ptr<Expr> Parser::or_expr() {
 }
 
 std::shared_ptr<Expr> Parser::and_expr() {
-  std::shared_ptr<Expr> expr = equality();
+  std::shared_ptr<Expr> expr = bitwise_or();
   while (match({TokenType::AND})) {
     Token op = previous();
-    std::shared_ptr<Expr> right = equality();
+    std::shared_ptr<Expr> right = bitwise_or();
     expr = std::make_shared<Logical>(expr, op, right);
+  }
+  return expr;
+}
+
+std::shared_ptr<Expr> Parser::bitwise_or() {
+  std::shared_ptr<Expr> expr = bitwise_xor();
+  while (match({TokenType::BITWISE_OR})) {
+    Token op = previous();
+    std::shared_ptr<Expr> right = bitwise_xor();
+    expr = std::make_shared<Binary>(expr, op, right);
+  }
+  return expr;
+}
+
+std::shared_ptr<Expr> Parser::bitwise_xor() {
+  std::shared_ptr<Expr> expr = bitwise_and();
+  while (match({TokenType::CARET})) {
+    Token op = previous();
+    std::shared_ptr<Expr> right = bitwise_and();
+    expr = std::make_shared<Binary>(expr, op, right);
+  }
+  return expr;
+}
+
+std::shared_ptr<Expr> Parser::bitwise_and() {
+  std::shared_ptr<Expr> expr = equality();
+  while (match({TokenType::AMPERSAND})) {
+    Token op = previous();
+    std::shared_ptr<Expr> right = equality();
+    expr = std::make_shared<Binary>(expr, op, right);
   }
   return expr;
 }
@@ -357,9 +391,19 @@ std::shared_ptr<Expr> Parser::equality() {
 }
 
 std::shared_ptr<Expr> Parser::comparison() {
-  std::shared_ptr<Expr> expr = pipeline();
+  std::shared_ptr<Expr> expr = shift();
   while (match({TokenType::GREATER, TokenType::GREATER_EQUAL, TokenType::LESS,
                 TokenType::LESS_EQUAL})) {
+    Token op = previous();
+    std::shared_ptr<Expr> right = shift();
+    expr = std::make_shared<Binary>(expr, op, right);
+  }
+  return expr;
+}
+
+std::shared_ptr<Expr> Parser::shift() {
+  std::shared_ptr<Expr> expr = pipeline();
+  while (match({TokenType::LEFT_SHIFT, TokenType::RIGHT_SHIFT})) {
     Token op = previous();
     std::shared_ptr<Expr> right = pipeline();
     expr = std::make_shared<Binary>(expr, op, right);
@@ -369,7 +413,7 @@ std::shared_ptr<Expr> Parser::comparison() {
 
 std::shared_ptr<Expr> Parser::pipeline() {
   std::shared_ptr<Expr> expr = term();
-  while (match({TokenType::PIPE})) {
+  while (match({TokenType::PIPELINE})) {
     Token op = previous();
     std::shared_ptr<Expr> right = term();
     expr = std::make_shared<Binary>(expr, op, right);
@@ -398,7 +442,7 @@ std::shared_ptr<Expr> Parser::factor() {
 }
 
 std::shared_ptr<Expr> Parser::unary() {
-  if (match({TokenType::BANG, TokenType::MINUS})) {
+  if (match({TokenType::BANG, TokenType::MINUS, TokenType::TILDE})) {
     Token op = previous();
     std::shared_ptr<Expr> right = unary();
     return std::make_shared<Unary>(op, right);
@@ -523,11 +567,15 @@ std::shared_ptr<Expr> Parser::primary() {
     if (!check(TokenType::RIGHT_PAREN)) {
       do {
         Token name = consume(TokenType::IDENTIFIER, "Expect parameter name.");
+        std::string paramType = "";
+        if (match({TokenType::COLON})) {
+          paramType = consume(TokenType::IDENTIFIER, "Expect parameter type.").lexeme;
+        }
         std::shared_ptr<Expr> defaultValue = nullptr;
         if (match({TokenType::EQUAL})) {
           defaultValue = expression();
         }
-        parameters.push_back(Parameter(name, defaultValue));
+        parameters.push_back(Parameter(name, defaultValue, paramType));
       } while (match({TokenType::COMMA}));
     }
     consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");

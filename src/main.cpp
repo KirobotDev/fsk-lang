@@ -14,6 +14,7 @@
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include "Interpreter.hpp"
+#include "TypeChecker.hpp"
 
 namespace fs = std::filesystem;
 
@@ -23,6 +24,9 @@ void run(std::string source) {
 
   Parser parser(tokens);
   std::vector<std::shared_ptr<Stmt>> statements = parser.parse();
+
+  TypeChecker typeChecker;
+  typeChecker.check(statements);
 
   Interpreter interpreter;
   interpreter.interpret(statements);
@@ -57,6 +61,10 @@ void runFile(int argc, char *argv[]) {
   std::vector<Token> tokens = lexer.scanTokens();
   Parser parser(tokens);
   std::vector<std::shared_ptr<Stmt>> statements = parser.parse();
+
+  TypeChecker typeChecker;
+  typeChecker.check(statements);
+
   interpreter.interpret(statements);
 }
 
@@ -524,19 +532,101 @@ void handleWebStart(int port = 8080) {
 }
 #endif
 
+#ifndef __EMSCRIPTEN__
+#include "Callable.hpp"
+
+void handleInstall() {
+    if (!fs::exists("fsk.json")) {
+        std::cerr << "Error: fsk.json not found in current directory." << std::endl;
+        return;
+    }
+
+    std::cout << "\033[36m[FPM]\033[0m Reading fsk.json..." << std::endl;
+    std::ifstream f("fsk.json");
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    Interpreter interp;
+
+    
+    try {
+        Value config = interp.jsonParse(buffer.str());
+        
+        if (std::holds_alternative<std::shared_ptr<FSKInstance>>(config)) {
+             auto inst = std::get<std::shared_ptr<FSKInstance>>(config);
+             
+             if (inst->fields.count("dependencies")) {
+                 Value deps = inst->fields["dependencies"];
+                 if (std::holds_alternative<std::shared_ptr<FSKInstance>>(deps)) {
+                     auto depsInst = std::get<std::shared_ptr<FSKInstance>>(deps);
+                     
+                     if (depsInst->fields.empty()) {
+                         std::cout << "  No dependencies found." << std::endl;
+                         return;
+                     }
+
+                     if (!fs::exists("fsk_modules")) {
+                         fs::create_directory("fsk_modules");
+                     }
+
+                     for (auto const& [name, val] : depsInst->fields) {
+                         if (std::holds_alternative<std::string>(val)) {
+                             std::string url = std::get<std::string>(val);
+                             std::cout << "  Installing \033[33m" << name << "\033[0m from " << url << "..." << std::endl;
+                             
+                             std::string targetDir = "fsk_modules/" + name;
+                             if (fs::exists(targetDir)) {
+                                 std::cout << "    Already installed." << std::endl;
+                             } else {
+                                 std::string cmd = "git clone --depth 1 " + url + " " + targetDir;
+                                 int res = std::system(cmd.c_str());
+                                 if (res != 0) {
+                                     std::cerr << "    \033[31mFailed to install " << name << "\033[0m" << std::endl;
+                                 } else {
+                                     std::cout << "    \033[32mSuccess\033[0m" << std::endl;
+                                 }
+                             }
+                         }
+                     }
+                 } else {
+                     std::cerr << "Error: 'dependencies' should be an object." << std::endl;
+                 }
+             } else {
+                 std::cout << "  No 'dependencies' field in fsk.json." << std::endl;
+             }
+        } else {
+            std::cerr << "Error: fsk.json root must be an object." << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing fsk.json: " << e.what() << std::endl;
+    }
+}
+#endif
+
 int main(int argc, char *argv[]) {
   if (argc >= 2) {
     std::string arg = argv[1];
     if (arg == "--version" || arg == "-v") {
-      std::cout << "Fsk Language v1.0.0" << std::endl;
+#ifndef __EMSCRIPTEN__
+      std::cout << "Fsk Language v1.1.0 (Async/HTTP/FPM)" << std::endl;
+#else
+      std::cout << "Fsk Web v1.0" << std::endl;
+#endif
       return 0;
     }
     if (arg == "--help" || arg == "-h") {
       std::cout << "Usage: fsk [command] [options]" << std::endl;
+      std::cout << "Commands:" << std::endl;
+      std::cout << "  install    Install dependencies from fsk.json" << std::endl;
+      std::cout << "  webinit    Initialize a web project" << std::endl;
+      std::cout << "  build      Build web project" << std::endl;
+      std::cout << "  start      Start web server" << std::endl;
+      std::cout << "  <file>     Run Fsk script" << std::endl;
       return 0;
     }
     
 #ifndef __EMSCRIPTEN__
+    if (arg == "install") { handleInstall(); return 0; }
     if (arg == "webinit") { handleWebInit(); return 0; }
     if (arg == "build") { handleWebBuild(); return 0; }
     if (arg == "start") { 
@@ -556,11 +646,14 @@ int main(int argc, char *argv[]) {
     runFile(argc, argv);
   } else {
 #ifndef __EMSCRIPTEN__
-    std::cout << "FuckSociety (FSK) v1.0" << std::endl;
+    std::cout << "Fsk Language v1.1.0" << std::endl;
     std::cout << "Tapez 'exit' pour quitter." << std::endl;
     std::string line;
     Interpreter interpreter;
     interpreter.setArgs(argc, argv);
+    
+    TypeChecker typeChecker;
+
     while (true) {
       std::cout << "fsk> ";
       if (!std::getline(std::cin, line) || line == "exit")
@@ -572,7 +665,10 @@ int main(int argc, char *argv[]) {
         std::vector<Token> tokens = lexer.scanTokens();
         Parser parser(tokens);
         std::vector<std::shared_ptr<Stmt>> statements = parser.parse();
-        interpreter.interpret(statements);
+        
+        typeChecker.check(statements, true); // Keep state
+
+        interpreter.interpret(statements, false, true); // No Event Loop, REPL Mode
       } catch (const std::exception &e) {
         std::cerr << "Erreur : " << e.what() << std::endl;
       }

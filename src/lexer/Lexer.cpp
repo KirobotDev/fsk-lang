@@ -252,8 +252,19 @@ void Lexer::scanTokenInternal() {
     break;
   case '|':
     if (match('>')) {
-      addToken(TokenType::PIPE);
+      addToken(TokenType::PIPELINE);
+    } else {
+      addToken(TokenType::BITWISE_OR);
     }
+    break;
+  case '&':
+    addToken(TokenType::AMPERSAND);
+    break;
+  case '^':
+    addToken(TokenType::CARET);
+    break;
+  case '~':
+    addToken(TokenType::TILDE);
     break;
   case ':':
     addToken(TokenType::COLON);
@@ -286,10 +297,22 @@ void Lexer::scanTokenInternal() {
     }
     break;
   case '<':
-    addToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+    if (match('=')) {
+      addToken(TokenType::LESS_EQUAL);
+    } else if (match('<')) {
+      addToken(TokenType::LEFT_SHIFT);
+    } else {
+      addToken(TokenType::LESS);
+    }
     break;
   case '>':
-    addToken(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER);
+    if (match('=')) {
+      addToken(TokenType::GREATER_EQUAL);
+    } else if (match('>')) {
+      addToken(TokenType::RIGHT_SHIFT);
+    } else {
+      addToken(TokenType::GREATER);
+    }
     break;
   case '/':
     if (match('/')) {

@@ -2,6 +2,7 @@
 #include "Callable.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
+#include "Compiler.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -82,7 +83,7 @@ extern "C" {
     uint32_t fsk_sql_open(const char* path);
     char* fsk_sql_query(uint32_t db_id, const char* query);
 
-    void fsk_vm_run(const uint8_t* bytecode, size_t bytecode_len, const double* constants, size_t constants_len);
+    void fsk_vm_run(const uint8_t* bytecode, size_t bytecode_len, const char* constants_json);
 
     uint64_t fsk_ffi_open(const char* path);
     int32_t fsk_ffi_call_void_string(uint64_t lib_id, const char* symbol, const char* arg);
@@ -123,7 +124,7 @@ Value jsonToValue(json j) {
         return Value(std::make_shared<FSKArray>(elements));
     }
     if (j.is_object()) {
-        static auto objClass = std::make_shared<FSKClass>("Object", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+        static auto objClass = std::make_shared<FSKClass>("Object", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
         auto instance = std::make_shared<FSKInstance>(objClass);
         for (auto& [key, val] : j.items()) {
              instance->fields[key] = jsonToValue(val);
@@ -166,6 +167,8 @@ public:
     Value call(Interpreter &interpreter, std::vector<Value> arguments) override { return Value(0.0); }
     std::string toString() override { return "<Native Library>"; }
 };
+
+extern "C" void fsk_vm_run(const uint8_t* bytecode_ptr, size_t bytecode_len, const char* constants_json);
 
 Interpreter::Interpreter() {
   eventLoop = std::make_shared<EventLoop>();
@@ -256,7 +259,7 @@ Interpreter::Interpreter() {
                         return Value(true);
                       }));
 
-  std::map<std::string, std::shared_ptr<FunctionCallable>> methods;
+  std::map<std::string, std::shared_ptr<Callable>> methods;
   auto fskClass =
       std::make_shared<FSKClass>("FSK", nullptr, methods);
   auto fskInstance = std::make_shared<FSKInstance>(fskClass);
@@ -347,7 +350,59 @@ Interpreter::Interpreter() {
         return Value(std::monostate{});
       }));
 
-  auto promiseClass = std::make_shared<FSKClass>("Promise", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto promiseClass = std::make_shared<FSKClass>("Promise", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
+  
+  std::map<std::string, std::shared_ptr<Callable>> pMethods;
+
+  pMethods["init"] = std::shared_ptr<NativeFunction>(new NativeFunction(1, 
+      NativeMethodCallback([](Interpreter &interp, std::vector<Value> args, std::shared_ptr<FSKInstance> self) -> Value {
+          if (!self) return Value(std::monostate{});
+          self->fields["state"] = std::string("pending");
+          self->fields["value"] = std::monostate{};
+    
+          if (args.size() > 0 && std::holds_alternative<std::shared_ptr<Callable>>(args[0])) {
+              auto executor = std::get<std::shared_ptr<Callable>>(args[0]);
+              
+              NativeCallback resolve = [self](Interpreter &i, std::vector<Value> a) -> Value {
+                  if (std::holds_alternative<std::string>(self->fields["state"]) && std::get<std::string>(self->fields["state"]) == "pending") {
+                      self->fields["state"] = std::string("resolved");
+                      self->fields["value"] = a.empty() ? Value(std::monostate{}) : a[0];
+                  }
+                  return Value(std::monostate{});
+              };
+              auto resolveFn = std::shared_ptr<NativeFunction>(new NativeFunction(1, resolve));
+    
+              NativeCallback reject = [self](Interpreter &i, std::vector<Value> a) -> Value {
+                  if (std::holds_alternative<std::string>(self->fields["state"]) && std::get<std::string>(self->fields["state"]) == "pending") {
+                      self->fields["state"] = std::string("rejected");
+                      self->fields["value"] = a.empty() ? Value(std::monostate{}) : a[0];
+                  }
+                  return Value(std::monostate{});
+              };
+              auto rejectFn = std::shared_ptr<NativeFunction>(new NativeFunction(1, reject));
+    
+              executor->call(interp, {Value(std::static_pointer_cast<Callable>(resolveFn)), Value(std::static_pointer_cast<Callable>(rejectFn))});
+          }
+          return Value(self);
+      }), nullptr));
+
+  pMethods["wait"] = std::shared_ptr<NativeFunction>(new NativeFunction(0, 
+      NativeMethodCallback([](Interpreter &interp, std::vector<Value> args, std::shared_ptr<FSKInstance> self) -> Value {
+           if (!self) return Value(std::monostate{});
+           
+           while (std::get<std::string>(self->fields["state"]) == "pending") {
+               if (!interp.eventLoop->processOne(true)) {
+                   break; 
+               }
+           }
+           
+           if (std::get<std::string>(self->fields["state"]) == "rejected") {
+               throw std::runtime_error("Promise rejected: " + Interpreter::stringify(self->fields["value"]));
+           }
+           return self->fields["value"];
+      }), nullptr));
+
+  promiseClass->methods = pMethods;
   globals->define("Promise", promiseClass);
 
   fskInstance->fields["fetch"] = std::make_shared<NativeFunction>(
@@ -358,51 +413,45 @@ Interpreter::Interpreter() {
                }
                std::string url = std::get<std::string>(args[0]);
 
-               auto pClassVal = interp.globals->get("Promise");
-               auto pClass = std::static_pointer_cast<FSKClass>(
-                   std::get<std::shared_ptr<Callable>>(pClassVal));
-               std::shared_ptr<FSKInstance> pInst = std::make_shared<FSKInstance>(pClass);
-               pInst->fields["status"] = std::string("pending");
-               pInst->fields["onResolve"] =
-                   std::make_shared<FSKArray>(std::vector<Value>());
+                // Explicit function construction using alias
+                NativeCallback execFunc = 
+                    [url, &interp](Interpreter &i, std::vector<Value> ea) -> Value {
+                         auto resolve = ea[0];
+                         auto reject = ea[1];
+                         auto evLoop = i.eventLoop;
+                         
+                         evLoop->incrementWorkCount();
+                         std::thread([evLoop, url, resolve, reject, &interp]() {
+                             char *result = fsk_fetch_blocking(url.c_str());
+                             if (result) {
+                                std::string body_res(result);
+                                fsk_free_string(result);
+                                
+                                evLoop->post([&interp, resolve, reject, body_res, evLoop]() {
+                                    if (auto r = std::get_if<std::shared_ptr<Callable>>(&resolve)) {
+                                        (*r)->call(interp, {Value(body_res)});
+                                    }
+                                    evLoop->decrementWorkCount();
+                                });
+                             } else {
+                                evLoop->post([&interp, resolve, reject, evLoop]() {
+                                    if (auto r = std::get_if<std::shared_ptr<Callable>>(&reject)) {
+                                        (*r)->call(interp, {Value(std::string("Fetch failed"))});
+                                    }
+                                    evLoop->decrementWorkCount();
+                                });
+                             }
+                         }).detach();
+                         return Value(std::monostate{}); 
+                    };
 
-               pInst->fields["then"] = std::make_shared<NativeFunction>(
-                   1, std::function<Value(Interpreter &, std::vector<Value>)>(
-                          [pInst](Interpreter &i, std::vector<Value> a) -> Value {
-                            auto cb = a[0];
-                            if (std::get<std::string>(
-                                    pInst->fields["status"]) == "resolved") {
-                              if (auto c = std::get_if<std::shared_ptr<Callable>>(
-                                      &cb))
-                                (*c)->call(i, {pInst->fields["value"]});
-                            } else {
-                              std::get<std::shared_ptr<FSKArray>>(
-                                  pInst->fields["onResolve"])
-                                  ->elements.push_back(cb);
-                            }
-                            return Value(pInst);
-                          }));
+                 auto executor = std::shared_ptr<NativeFunction>(new NativeFunction(2, execFunc));
 
-               interp.eventLoop->incrementWorkCount();
-               std::thread([this, url, pInst]() {
-                 char *result = fsk_fetch_blocking(url.c_str());
-                 std::string body_res(result);
-                 fsk_free_string(result);
-
-                 this->eventLoop->post([this, pInst, body_res]() {
-                   pInst->fields["status"] = std::string("resolved");
-                   pInst->fields["value"] = body_res;
-                   auto callbacks = std::get<std::shared_ptr<FSKArray>>(
-                       pInst->fields["onResolve"]);
-                   for (auto &cb : callbacks->elements) {
-                     if (auto c = std::get_if<std::shared_ptr<Callable>>(&cb))
-                       (*c)->call(*this, {Value(body_res)});
-                   }
-                   this->eventLoop->decrementWorkCount();
-                 });
-               }).detach();
-
-               return Value(pInst);
+                 auto Promise = interp.globals->get("Promise");
+                 if (auto cls = std::get_if<std::shared_ptr<Callable>>(&Promise)) {
+                     return (*cls)->call(interp, {Value(std::static_pointer_cast<Callable>(executor))});
+                 }
+                 return Value(std::monostate{});
              }));
 
 #ifdef __EMSCRIPTEN__
@@ -677,7 +726,7 @@ Interpreter::Interpreter() {
       });
    fskInstance->fields["E"] = Value(2.71828182845904523536);
 
-   auto wsNInstance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>()));
+   auto wsNInstance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<Callable>>()));
    wsNInstance->fields["listen"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
        if (!std::holds_alternative<double>(args[0])) throw std::runtime_error("WS.listen requires port");
        int port = (int)std::get<double>(args[0]);
@@ -693,7 +742,7 @@ Interpreter::Interpreter() {
 
   globals->define("FSK", fskInstance);
 
-   auto ffiClass = std::make_shared<FSKClass>("FFI", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto ffiClass = std::make_shared<FSKClass>("FFI", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
    auto ffiInstance = std::make_shared<FSKInstance>(ffiClass);
 
    ffiInstance->fields["open"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
@@ -703,7 +752,7 @@ Interpreter::Interpreter() {
        uint64_t id = fsk_ffi_open(path.c_str());
        if (id == 0) return Value(false);
 
-       auto libClass = std::make_shared<FSKClass>("Library", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+       auto libClass = std::make_shared<FSKClass>("Library", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
        auto libInst = std::make_shared<FSKInstance>(libClass);
               // lib.call("symbol", ...args)
         libInst->fields["call"] = std::make_shared<NativeFunction>(-1, [id](Interpreter &interp, std::vector<Value> args) {
@@ -800,7 +849,7 @@ Interpreter::Interpreter() {
    globals->define("FFI", ffiInstance);
 
 
-  auto consoleClass = std::make_shared<FSKClass>("Console", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto consoleClass = std::make_shared<FSKClass>("Console", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto consoleInstance = std::make_shared<FSKInstance>(consoleClass);
   
   consoleInstance->fields["clear"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
@@ -836,7 +885,7 @@ Interpreter::Interpreter() {
 
   globals->define("Console", consoleInstance);
 
-   auto sqlClass = std::make_shared<FSKClass>("SQL", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto sqlClass = std::make_shared<FSKClass>("SQL", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
    auto sqlInstance = std::make_shared<FSKInstance>(sqlClass);
 
    sqlInstance->fields["open"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
@@ -854,7 +903,7 @@ Interpreter::Interpreter() {
 
    globals->define("SQL", sqlInstance);
 
-   auto systemClass = std::make_shared<FSKClass>("System", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+   auto systemClass = std::make_shared<FSKClass>("System", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
    auto systemInstance = std::make_shared<FSKInstance>(systemClass);
    systemInstance->fields["getInfo"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
       char* res = fsk_system_get_info();
@@ -864,11 +913,33 @@ Interpreter::Interpreter() {
    });
    globals->define("System", systemInstance);
 
-   auto vmClass = std::make_shared<FSKClass>("VM", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+
+   auto vmClass = std::make_shared<FSKClass>("VM", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
    auto vmInstance = std::make_shared<FSKInstance>(vmClass);
-   vmInstance->fields["run"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+
+   vmInstance->fields["run"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+       if (!std::holds_alternative<std::string>(args[0])) throw std::runtime_error("VM.run attend une chaîne (code source).");
+       std::string source = std::get<std::string>(args[0]);
+       
+       Lexer lexer(source);
+       std::vector<Token> tokens = lexer.scanTokens();
+       Parser parser(tokens);
+       std::vector<std::shared_ptr<Stmt>> statements = parser.parse();
+       
+       Compiler compiler;
+       auto compiled = compiler.compile(statements);
+       
+       nlohmann::json consts = compiled.constants;
+       std::string jsonStr = consts.dump();
+       
+       fsk_vm_run(compiled.bytecode.data(), compiled.bytecode.size(), jsonStr.c_str());
+       
+       return Value(std::monostate{});
+   });
+
+   vmInstance->fields["runBytecode"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
        if (!std::holds_alternative<std::shared_ptr<FSKArray>>(args[0]) || !std::holds_alternative<std::shared_ptr<FSKArray>>(args[1])) {
-           throw std::runtime_error("VM.run needs (bytecode_array, constants_array)");
+           throw std::runtime_error("VM.runBytecode needs (bytecode_array, constants_array)");
        }
        auto bArr = std::get<std::shared_ptr<FSKArray>>(args[0]);
        auto cArr = std::get<std::shared_ptr<FSKArray>>(args[1]);
@@ -878,17 +949,21 @@ Interpreter::Interpreter() {
            if (std::holds_alternative<double>(v)) bytecode.push_back((uint8_t)std::get<double>(v));
        }
 
-       std::vector<double> constants;
-       for (auto& v : cArr->elements) {
-           if (std::holds_alternative<double>(v)) constants.push_back(std::get<double>(v));
-       }
+        nlohmann::json jConsts = nlohmann::json::array();
+        for (auto& v : cArr->elements) {
+            if (std::holds_alternative<double>(v)) jConsts.push_back(std::get<double>(v));
+            else if (std::holds_alternative<std::string>(v)) jConsts.push_back(std::get<std::string>(v));
+            else if (std::holds_alternative<bool>(v)) jConsts.push_back(std::get<bool>(v));
+            else jConsts.push_back(nullptr);
+        }
+        std::string jsonStr = jConsts.dump();
 
-       fsk_vm_run(bytecode.data(), bytecode.size(), constants.data(), constants.size());
-       return Value(true);
+        fsk_vm_run(bytecode.data(), bytecode.size(), jsonStr.c_str());
+        return Value(true);
    });
    globals->define("VM", vmInstance);
 
-  auto jsonClass = std::make_shared<FSKClass>("JSON", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto jsonClass = std::make_shared<FSKClass>("JSON", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto jsonInstance = std::make_shared<FSKInstance>(jsonClass);
 
   jsonInstance->fields["parse"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
@@ -910,7 +985,139 @@ Interpreter::Interpreter() {
 
   globals->define("JSON", jsonInstance);
 
-  auto cryptoClass = std::make_shared<FSKClass>("Crypto", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto audioClass = std::make_shared<FSKClass>("Audio", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
+  auto audioInstance = std::make_shared<FSKInstance>(audioClass);
+
+  audioInstance->fields["init"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      InitAudioDevice();
+      return Value(true);
+  });
+
+  audioInstance->fields["load"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
+      std::string path = std::get<std::string>(args[0]);
+      Sound sound = LoadSound(path.c_str());
+      interp.sounds.push_back(sound);
+      return Value((double)(interp.sounds.size() - 1));
+  });
+
+  audioInstance->fields["play"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      if (id >= 0 && (size_t)id < interp.sounds.size()) {
+          PlaySound(interp.sounds[id]);
+          return Value(true);
+      }
+      return Value(false);
+  });
+
+  audioInstance->fields["stop"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      if (id >= 0 && (size_t)id < interp.sounds.size()) {
+          StopSound(interp.sounds[id]);
+          return Value(true);
+      }
+      return Value(false);
+  });
+
+  audioInstance->fields["setVolume"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      float volume = (float)std::get<double>(args[1]);
+      if (id >= 0 && (size_t)id < interp.sounds.size()) {
+          SetSoundVolume(interp.sounds[id], volume);
+          return Value(true);
+      }
+      return Value(false);
+  });
+
+  audioInstance->fields["close"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      CloseAudioDevice();
+      return Value(true);
+  });
+
+  globals->define("Audio", audioInstance);
+
+  auto gfxClass = std::make_shared<FSKClass>("Graphics", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
+  auto gfxInstance = std::make_shared<FSKInstance>(gfxClass);
+
+  gfxInstance->fields["init"] = std::make_shared<NativeFunction>(3, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]) || !std::holds_alternative<std::string>(args[2])) return Value(false);
+      int width = (int)std::get<double>(args[0]);
+      int height = (int)std::get<double>(args[1]);
+      std::string title = std::get<std::string>(args[2]);
+      InitWindow(width, height, title.c_str());
+      return Value(true);
+  });
+
+  gfxInstance->fields["close"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      CloseWindow();
+      return Value(true);
+  });
+
+  gfxInstance->fields["beginDrawing"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      BeginDrawing();
+      return Value(true);
+  });
+
+  gfxInstance->fields["endDrawing"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      EndDrawing();
+      return Value(true);
+  });
+
+  gfxInstance->fields["clearBackground"] = std::make_shared<NativeFunction>(3, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]) || !std::holds_alternative<double>(args[2])) return Value(false);
+      int r = (int)std::get<double>(args[0]);
+      int g = (int)std::get<double>(args[1]);
+      int b = (int)std::get<double>(args[2]);
+      ClearBackground(CLITERAL(Color){ r, g, b, 255 });
+      return Value(true);
+  });
+
+  gfxInstance->fields["loadTexture"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(-1.0);
+      std::string path = std::get<std::string>(args[0]);
+      Texture2D texture = LoadTexture(path.c_str());
+      interp.textures.push_back(texture);
+      return Value((double)(interp.textures.size() - 1));
+  });
+
+  gfxInstance->fields["drawTexture"] = std::make_shared<NativeFunction>(3, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]) || !std::holds_alternative<double>(args[2])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      int x = (int)std::get<double>(args[1]);
+      int y = (int)std::get<double>(args[2]);
+      if (id >= 0 && (size_t)id < interp.textures.size()) {
+          DrawTexture(interp.textures[id], x, y, WHITE);
+          return Value(true);
+      }
+      return Value(false);
+  });
+
+  gfxInstance->fields["unloadTexture"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(false);
+      int id = (int)std::get<double>(args[0]);
+      if (id >= 0 && (size_t)id < interp.textures.size()) {
+          UnloadTexture(interp.textures[id]);
+          return Value(true);
+      }
+      return Value(false);
+  });
+  
+  gfxInstance->fields["shouldClose"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
+      return Value(WindowShouldClose());
+  });
+
+  gfxInstance->fields["setTargetFPS"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(false);
+      SetTargetFPS((int)std::get<double>(args[0]));
+      return Value(true);
+  });
+
+   globals->define("Graphics", gfxInstance);
+
+   auto cryptoClass = std::make_shared<FSKClass>("Crypto", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto cryptoInstance = std::make_shared<FSKInstance>(cryptoClass);
 
    cryptoInstance->fields["sha256"] = std::make_shared<NativeFunction>(
@@ -921,6 +1128,36 @@ Interpreter::Interpreter() {
          fsk_free_string(res);
          return Value(result);
        });
+
+  auto mathClass = std::make_shared<FSKClass>("Math", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
+  auto mathInstance = std::make_shared<FSKInstance>(mathClass);
+  mathInstance->fields["PI"] = 3.14159265358979323846;
+  mathInstance->fields["E"] = 2.71828182845904523536;
+  
+  mathInstance->fields["sin"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+      return Value(std::sin(std::get<double>(args[0])));
+  });
+  mathInstance->fields["cos"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+      return Value(std::cos(std::get<double>(args[0])));
+  });
+  mathInstance->fields["sqrt"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+      return Value(std::sqrt(std::get<double>(args[0])));
+  });
+  mathInstance->fields["abs"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0])) return Value(0.0);
+      return Value(std::abs(std::get<double>(args[0])));
+  });
+  mathInstance->fields["pow"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1])) return Value(0.0);
+      return Value(std::pow(std::get<double>(args[0]), std::get<double>(args[1])));
+  });
+
+  globals->define("Math", mathInstance);
+
+
 
    cryptoInstance->fields["md5"] = std::make_shared<NativeFunction>(
        1, [](Interpreter &interp, std::vector<Value> args) {
@@ -977,7 +1214,7 @@ Interpreter::Interpreter() {
 
   globals->define("Crypto", cryptoInstance);
 
-  auto dateClass = std::make_shared<FSKClass>("Date", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto dateClass = std::make_shared<FSKClass>("Date", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto dateInstance = std::make_shared<FSKInstance>(dateClass);
 
   dateInstance->fields["now"] = std::make_shared<NativeFunction>(0, [](Interpreter &interp, std::vector<Value> args) {
@@ -1002,7 +1239,7 @@ Interpreter::Interpreter() {
 
   globals->define("Date", dateInstance);
 
-  auto fsClass = std::make_shared<FSKClass>("FS", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto fsClass = std::make_shared<FSKClass>("FS", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto fsInstance = std::make_shared<FSKInstance>(fsClass);
 
   fsInstance->fields["exists"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
@@ -1019,6 +1256,17 @@ Interpreter::Interpreter() {
       buffer << t.rdbuf();
       return Value(buffer.str());
   });
+  fsInstance->fields["readFile"] = fsInstance->fields["read"];
+
+  fsInstance->fields["write"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
+      std::string path = std::get<std::string>(args[0]);
+      std::string content = std::get<std::string>(args[1]);
+      std::ofstream t(path);
+      t << content;
+      return Value(true);
+  });
+  fsInstance->fields["writeFile"] = fsInstance->fields["write"];
 
   fsInstance->fields["write"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
       if (!std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) return Value(false);
@@ -1174,12 +1422,32 @@ Interpreter::Interpreter() {
        return Value(std::make_shared<FSKArray>(files));
   });
 
+  fsInstance->fields["stat"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
+      if (!std::holds_alternative<std::string>(args[0])) return Value(std::monostate{});
+      std::string path = std::get<std::string>(args[0]);
+      try {
+          if (!std::filesystem::exists(path)) return Value(std::monostate{});
+          static auto statClass = std::make_shared<FSKClass>("Stat", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
+          auto stat = std::make_shared<FSKInstance>(statClass);
+          
+          auto ftime = std::filesystem::last_write_time(path);
+          auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(ftime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
+          std::time_t cftime = std::chrono::system_clock::to_time_t(sctp);
+          
+          stat->fields["size"] = Value((double)std::filesystem::file_size(path));
+          stat->fields["isDirectory"] = Value(std::filesystem::is_directory(path));
+          stat->fields["isFile"] = Value(std::filesystem::is_regular_file(path));
+          stat->fields["mtime"] = Value((double)cftime); 
+          return Value(stat);
+      } catch(...) { return Value(std::monostate{}); }
+  });
+
   globals->define("FS", fsInstance);
 
 
-  auto workerHandleClass = std::make_shared<FSKClass>("WorkerHandle", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto workerHandleClass = std::make_shared<FSKClass>("WorkerHandle", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   
-  auto workerFactoryClass = std::make_shared<FSKClass>("WorkerFactory", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto workerFactoryClass = std::make_shared<FSKClass>("WorkerFactory", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto workerFactory = std::make_shared<FSKInstance>(workerFactoryClass);
 
   workerFactory->fields["init"] = std::make_shared<NativeFunction>(1, [workerHandleClass](Interpreter &interp, std::vector<Value> args) {
@@ -1267,7 +1535,7 @@ Interpreter::Interpreter() {
       return Value(std::make_shared<FSKArray>(msgs));
   }));
 
-  auto taskClass = std::make_shared<FSKClass>("Task", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto taskClass = std::make_shared<FSKClass>("Task", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto taskFactory = std::make_shared<FSKInstance>(taskClass);
 
   taskFactory->fields["run"] = std::make_shared<NativeFunction>(1, [](Interpreter &interp, std::vector<Value> args) {
@@ -1306,7 +1574,7 @@ Interpreter::Interpreter() {
       int id = interp.workerIdCounter++;
       interp.workers[id] = resource;
       
-      auto instance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("TaskInstance", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>()));
+      auto instance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("TaskInstance", nullptr, std::map<std::string, std::shared_ptr<Callable>>()));
       instance->fields["id"] = Value((double)id);
       
       instance->fields["wait"] = std::make_shared<NativeFunction>(0, [id](Interpreter &interp, std::vector<Value> args) {
@@ -1329,7 +1597,7 @@ Interpreter::Interpreter() {
 
   globals->define("Task", taskFactory);
 
-  auto regexClass = std::make_shared<FSKClass>("Regex", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto regexClass = std::make_shared<FSKClass>("Regex", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto regexInstance = std::make_shared<FSKInstance>(regexClass);
 
   regexInstance->fields["match"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
@@ -1372,7 +1640,7 @@ Interpreter::Interpreter() {
 
   globals->define("Regex", regexInstance);
 
-  auto httpClass = std::make_shared<FSKClass>("HTTP", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  auto httpClass = std::make_shared<FSKClass>("HTTP", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto httpInstance = std::make_shared<FSKInstance>(httpClass);
 
    httpInstance->fields["httpGet"] = std::make_shared<NativeFunction>(
@@ -1405,7 +1673,7 @@ Interpreter::Interpreter() {
 
            if (res == CURLE_OK) {
                 // Return object with status and body
-                auto respClass = std::make_shared<FSKClass>("HttpResponse", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+                auto respClass = std::make_shared<FSKClass>("HttpResponse", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
                 auto respInst = std::make_shared<FSKInstance>(respClass);
                 respInst->fields["status"] = Value((double)response_code);
                 respInst->fields["body"] = Value(readBuffer);
@@ -1459,7 +1727,7 @@ Interpreter::Interpreter() {
            curl_easy_cleanup(curl);
            
            if (res == CURLE_OK) {
-                auto respClass = std::make_shared<FSKClass>("HttpResponse", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+                auto respClass = std::make_shared<FSKClass>("HttpResponse", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
                 auto respInst = std::make_shared<FSKInstance>(respClass);
                 respInst->fields["status"] = Value((double)response_code);
                 respInst->fields["body"] = Value(readBuffer);
@@ -1504,10 +1772,17 @@ Interpreter::Interpreter() {
   }
 }
 
-void Interpreter::interpret(std::vector<std::shared_ptr<Stmt>> statements, bool runEventLoop) {
+void Interpreter::interpret(std::vector<std::shared_ptr<Stmt>> statements, bool runEventLoop, bool replMode) {
   try {
     for (const auto &stmt : statements) {
       execute(stmt);
+      if (replMode) {
+          if (auto exprStmt = std::dynamic_pointer_cast<Expression>(stmt)) {
+             if (!std::holds_alternative<std::monostate>(lastValue)) {
+                 std::cout << stringify(lastValue) << std::endl;
+             }
+          }
+      }
     }
     
     if (runEventLoop) {
@@ -1515,6 +1790,13 @@ void Interpreter::interpret(std::vector<std::shared_ptr<Stmt>> statements, bool 
     }
   } catch (const std::runtime_error &error) {
     std::cerr << "Erreur d'exécution : " << error.what() << std::endl;
+    if (!callStack.empty()) {
+        std::cerr << "Call Stack:" << std::endl;
+        for (auto it = callStack.rbegin(); it != callStack.rend(); ++it) {
+            std::cerr << "  at " << *it << "()" << std::endl;
+        }
+    }
+    callStack.clear();
   }
 }
 
@@ -1665,16 +1947,16 @@ void Interpreter::visitReturnStmt(Return &stmt) {
   if (stmt.value != nullptr)
     value = evaluate(stmt.value);
 
-  throw value; 
+  throw ReturnException(value); 
 }
 
 void Interpreter::visitTryStmt(Try &stmt) {
   try {
     execute(stmt.tryBranch);
-  } catch (Value &error) {
+  } catch (FSKException &error) {
     std::shared_ptr<Environment> env =
         std::make_shared<Environment>(this->environment);
-    env->define(stmt.catchName.lexeme, error);
+    env->define(stmt.catchName.lexeme, error.value);
     executeBlock({stmt.catchBranch}, env);
   } catch (const std::runtime_error &error) {
     std::shared_ptr<Environment> env =
@@ -1694,7 +1976,7 @@ void Interpreter::visitForStmt(For &stmt) {
 
 void Interpreter::visitThrowStmt(Throw &stmt) {
   Value value = evaluate(stmt.value);
-  throw value;
+  throw FSKException(value);
 }
 
 void Interpreter::visitClassStmt(Class &stmt) {
@@ -1719,7 +2001,7 @@ void Interpreter::visitClassStmt(Class &stmt) {
                         std::static_pointer_cast<Callable>(superclass));
   }
 
-  std::map<std::string, std::shared_ptr<FunctionCallable>> methods;
+  std::map<std::string, std::shared_ptr<Callable>> methods;
   for (const auto &method : stmt.methods) {
     auto function = std::make_shared<FunctionCallable>(method, environment);
     methods[method->name.lexeme] = function;
@@ -1749,6 +2031,9 @@ void Interpreter::visitUnaryExpr(Unary &expr) {
     break;
   case TokenType::BANG:
     lastValue = !isTruthy(right);
+    break;
+  case TokenType::TILDE:
+    lastValue = (double)(~(int64_t)std::get<double>(right));
     break;
   default:
     break;
@@ -1799,7 +2084,22 @@ void Interpreter::visitBinaryExpr(Binary &expr) {
   case TokenType::PERCENT:
     lastValue = fmod(std::get<double>(left), std::get<double>(right));
     break;
-  case TokenType::PIPE:
+  case TokenType::BITWISE_OR:
+    lastValue = (double)((int64_t)std::get<double>(left) | (int64_t)std::get<double>(right));
+    break;
+  case TokenType::AMPERSAND:
+    lastValue = (double)((int64_t)std::get<double>(left) & (int64_t)std::get<double>(right));
+    break;
+  case TokenType::CARET:
+    lastValue = (double)((int64_t)std::get<double>(left) ^ (int64_t)std::get<double>(right));
+    break;
+  case TokenType::LEFT_SHIFT:
+    lastValue = (double)((int64_t)std::get<double>(left) << (int64_t)std::get<double>(right));
+    break;
+  case TokenType::RIGHT_SHIFT:
+    lastValue = (double)((int64_t)std::get<double>(left) >> (int64_t)std::get<double>(right));
+    break;
+  case TokenType::PIPELINE:
     if (std::holds_alternative<std::shared_ptr<Callable>>(right)) {
         auto function = std::get<std::shared_ptr<Callable>>(right);
         if (function->arity() != 1 && function->arity() != -1) {
@@ -1932,6 +2232,63 @@ void Interpreter::visitGetExpr(Get &expr) {
             Value v = arr->elements.front();
             arr->elements.erase(arr->elements.begin());
             return v;
+          });
+      return;
+    }
+    if (expr.name.lexeme == "map") {
+      lastValue = std::make_shared<NativeFunction>(
+          1, [arr](Interpreter &interp, std::vector<Value> args) {
+            if (!std::holds_alternative<std::shared_ptr<Callable>>(args[0]))
+                throw std::runtime_error("map expects a callback function.");
+            auto callback = std::get<std::shared_ptr<Callable>>(args[0]);
+            std::vector<Value> results;
+            for (auto &elem : arr->elements) {
+              results.push_back(callback->call(interp, {elem}));
+            }
+            return (Value)std::make_shared<FSKArray>(results);
+          });
+      return;
+    }
+    if (expr.name.lexeme == "filter") {
+      lastValue = std::make_shared<NativeFunction>(
+          1, [arr](Interpreter &interp, std::vector<Value> args) {
+            if (!std::holds_alternative<std::shared_ptr<Callable>>(args[0]))
+                throw std::runtime_error("filter expects a callback function.");
+            auto callback = std::get<std::shared_ptr<Callable>>(args[0]);
+            std::vector<Value> results;
+            for (auto &elem : arr->elements) {
+              if (interp.isTruthy(callback->call(interp, {elem}))) {
+                results.push_back(elem);
+              }
+            }
+            return (Value)std::make_shared<FSKArray>(results);
+          });
+      return;
+    }
+    if (expr.name.lexeme == "reduce") {
+      lastValue = std::make_shared<NativeFunction>(
+          2, [arr](Interpreter &interp, std::vector<Value> args) {
+            if (!std::holds_alternative<std::shared_ptr<Callable>>(args[0]))
+                throw std::runtime_error("reduce expects a callback function.");
+            auto callback = std::get<std::shared_ptr<Callable>>(args[0]);
+            Value accumulator = args[1];
+            for (auto &elem : arr->elements) {
+              accumulator = callback->call(interp, {accumulator, elem});
+            }
+            return accumulator;
+          });
+      return;
+    }
+    if (expr.name.lexeme == "forEach") {
+      lastValue = std::make_shared<NativeFunction>(
+          1, [arr](Interpreter &interp, std::vector<Value> args) {
+            if (!std::holds_alternative<std::shared_ptr<Callable>>(args[0]))
+                throw std::runtime_error("forEach expects a callback function.");
+            auto callback = std::get<std::shared_ptr<Callable>>(args[0]);
+            for (auto &elem : arr->elements) {
+              callback->call(interp, {elem});
+            }
+            return Value(std::monostate{});
           });
       return;
     }
@@ -2076,7 +2433,7 @@ void Interpreter::visitSuperExpr(Super &expr) {
   std::shared_ptr<FSKInstance> object =
       std::get<std::shared_ptr<FSKInstance>>(thisValue);
 
-  std::shared_ptr<FunctionCallable> method =
+  std::shared_ptr<Callable> method =
       superclass->findMethod(expr.method.lexeme);
 
   if (method == nullptr) {
@@ -2121,7 +2478,7 @@ void Interpreter::visitArrowFunctionExpr(ArrowFunction &expr) {
 }
 
 void Interpreter::visitObjectExpr(ObjectExpr &expr) {
-  static auto objClass = std::make_shared<FSKClass>("Object", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+  static auto objClass = std::make_shared<FSKClass>("Object", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
   auto instance = std::make_shared<FSKInstance>(objClass);
   for (auto const& [key, valExpr] : expr.fields) {
     instance->fields[key] = evaluate(valExpr);
@@ -2442,7 +2799,7 @@ extern "C" void fsk_on_http_request(uint64_t req_id, const char* method, const c
         }
 
         if (std::holds_alternative<std::shared_ptr<Callable>>(handler)) {
-            static auto reqClass = std::make_shared<FSKClass>("Request", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+            static auto reqClass = std::make_shared<FSKClass>("Request", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
             auto reqInst = std::make_shared<FSKInstance>(reqClass);
             reqInst->fields["id"] = (double)req_id;
             reqInst->fields["method"] = m;
@@ -2479,7 +2836,7 @@ extern "C" void fsk_on_ws_message(uint32_t ws_id, const char* message, void* con
         }
 
         if (std::holds_alternative<std::shared_ptr<Callable>>(handler)) {
-            static auto wsClass = std::make_shared<FSKClass>("WebSocketPointer", nullptr, std::map<std::string, std::shared_ptr<FunctionCallable>>());
+            static auto wsClass = std::make_shared<FSKClass>("WebSocketPointer", nullptr, std::map<std::string, std::shared_ptr<Callable>>());
             auto wsInst = std::make_shared<FSKInstance>(wsClass);
             wsInst->fields["id"] = (double)ws_id;
             
@@ -2495,41 +2852,3 @@ extern "C" void fsk_on_ws_message(uint32_t ws_id, const char* message, void* con
     });
 }
 
-Value FunctionCallable::call(Interpreter &interpreter,
-                             std::vector<Value> arguments) {
-  std::shared_ptr<Environment> environment =
-      std::make_shared<Environment>(closure);
-  
-  for (size_t i = 0; i < declaration->params.size(); ++i) {
-    Value val;
-    if (i < arguments.size()) {
-      val = arguments[i];
-    } else if (declaration->params[i].defaultValue != nullptr) {
-      val = interpreter.evaluate(declaration->params[i].defaultValue);
-    } else {
-      val = std::monostate{};
-    }
-    environment->define(declaration->params[i].name.lexeme, val);
-  }
-
-  try {
-    interpreter.executeBlock(declaration->body, environment);
-  } catch (const Value &returnValue) {
-    return returnValue;
-  }
-
-  return std::monostate{};
-}
-
-
-Value FSKClass::call(Interpreter &interpreter, std::vector<Value> arguments) {
-  auto instance = std::make_shared<FSKInstance>(shared_from_this());
-
-  std::shared_ptr<FunctionCallable> initializer = findMethod("init");
-  if (initializer != nullptr) {
-    auto boundConstructor = initializer->bind(instance); 
-    boundConstructor->call(interpreter, arguments);
-  }
-
-  return instance;
-}

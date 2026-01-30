@@ -1,0 +1,28 @@
+let person = {
+    name: "Sionuk",
+    age: 25,
+    skills: ["Fsk", "Rust", "C++"]
+};
+
+print "Name: " + person.name;
+print "Age: " + person["age"];
+
+let config = {
+    database: {
+        host: "localhost",
+        port: 5432
+    },
+    debug: true
+};
+
+print "DB Host: " + config.database.host;
+print "DB Port: " + config["database"]["port"];
+
+person.age = 26;
+person["city"] = "Paris";
+print "Updated Age: " + person.age;
+print "City: " + person.city;
+
+let score = 100;
+let game = { score };
+print "Game Score: " + game.score;

@@ -1,0 +1,19 @@
+print "Starting Async Test...";
+
+let p = new Promise(fn(resolve, reject) {
+    print "Executor running. Waiting 1 second...";
+    setTimeout(fn() {
+        print "Timeout fired!";
+        resolve("Async Success");
+    }, 1000);
+});
+
+print "Promise created. Awaiting...";
+let result = await p;
+print "Result: " + result;
+
+if (result == "Async Success") {
+    print "TEST PASSED";
+} else {
+    print "TEST FAILED";
+}

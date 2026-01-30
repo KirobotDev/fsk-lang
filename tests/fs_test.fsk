@@ -1,0 +1,32 @@
+
+import "std/fs";
+
+print "--- FS Test ---";
+let testDir = "fs_test_dir";
+
+try { fs.delete(testDir); } catch(e) {}
+
+print "Creating directory: " + testDir;
+fs.mkdir(testDir);
+
+if (fs.exists(testDir)) {
+    print "Directory created.";
+} else {
+    print "Mkdir failed.";
+}
+
+let testFile = testDir + "/stat_test.txt";
+fs.write(testFile, "Hello Stat");
+
+let s = fs.stat(testFile);
+if (s) {
+    print "Stat: size=" + s.size + " isFile=" + s.isFile;
+} else {
+    print "Stat failed.";
+}
+
+print "Reading dir...";
+let list = fs.readdir(testDir);
+print "Files: " + list;
+
+print "Test complete.";

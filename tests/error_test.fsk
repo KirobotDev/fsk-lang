@@ -1,0 +1,38 @@
+fn testError() {
+    try {
+        print "Entering try block...";
+        throw "Special Error";
+        print "This should not be printed!";
+    } catch (e) {
+        print "Caught error: " + e;
+    }
+}
+
+fn testReturnInTry() {
+    try {
+        print "Returning from try block...";
+        return "Success Result";
+    } catch (e) {
+        print "ERROR: Caught return as exception: " + e;
+    }
+    return "Failed Result";
+}
+
+print "--- Basic Throw/Catch ---";
+testError();
+
+print "--- Return in Try ---";
+let res = testReturnInTry();
+print "Result: " + res;
+
+print "--- Nested Try/Catch ---";
+try {
+    try {
+        throw { code: 404, msg: "Not Found" };
+    } catch (e) {
+        print "Inner caught: " + e.msg;
+        throw "Rethrown: " + e.msg;
+    }
+} catch (e) {
+    print "Outer caught: " + e;
+}

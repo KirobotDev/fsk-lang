@@ -1,28 +1,31 @@
-let NativeFS = FS;
-
 class FileSystem {
-    fn read(path) { return NativeFS.read(path); }
-    fn write(path, c) { return NativeFS.write(path, c); }
-    fn append(path, c) { return NativeFS.append(path, c); }
-    fn exists(path) { return NativeFS.exists(path); }
-    fn delete(path) { return NativeFS.delete(path); }
-    fn mkdir(path) { return NativeFS.mkdir(path); }
-    fn list(path) { return NativeFS.list(path); }
-    fn copy(src, dest) { return NativeFS.copy(src, dest); }
-    fn move(src, dest) { return NativeFS.move(src, dest); }
-    fn walk(path) { return NativeFS.walk(path); }
+    fn read(path) { return FS.readFile(path); }
+    fn write(path, content) { return FS.writeFile(path, content); }
+    fn exists(path) { return FS.exists(path); }
+    fn delete(path) { return FS.delete(path); }
+    fn mkdir(path) { return FS.mkdir(path); }
+    fn readdir(path) { return FS.list(path); }
+    fn copy(src, dst) { return FS.copy(src, dst); }
+    fn move(src, dst) { return FS.move(src, dst); }
+    fn stat(path) { return FS.stat(path); }
+    
+    fn watch(path, callback) {
 
-    fn readLines(path) {
-        let content = this.read(path);
-        if (content == "") return []; // Or empty list?
-        return content.split("\n");
+         let id = FS.watch(path);
+         if (id != -1) {
+             setInterval(fn() {
+                 let events = FS.poll(id);
+                 if (events.length() > 0) {
+                     callback(events);
+                 }
+             }, 100);
+         }
+         return id;
     }
 
-    fn readJson(path) {
-        let content = this.read(path);
-        if (content == "") return nil;
-        return JSON.parse(content);
+    fn append(path, content) {
+        return FS.append(path, content);
     }
 }
 
-let FS = FileSystem();
+let fs = new FileSystem();

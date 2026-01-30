@@ -1,0 +1,5 @@
+fn badReturn() -> number {
+    return "not a number";
+}
+
+badReturn();

@@ -36,8 +36,9 @@ struct ObjectExpr;
 struct Parameter {
   Token name;
   std::shared_ptr<Expr> defaultValue;
-  Parameter(Token name, std::shared_ptr<Expr> defaultValue = nullptr)
-      : name(name), defaultValue(defaultValue) {}
+  std::string typeHint;
+  Parameter(Token name, std::shared_ptr<Expr> defaultValue = nullptr, std::string typeHint = "")
+      : name(name), defaultValue(defaultValue), typeHint(typeHint) {}
 };
 
 struct ExprVisitor {

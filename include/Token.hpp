@@ -68,7 +68,13 @@ enum class TokenType {
   
   QUESTION_DOT,     
   QUESTION_QUESTION, 
-  PIPE,             
+  BITWISE_OR,       
+  PIPELINE,         
+  CARET,
+  AMPERSAND,
+  TILDE,
+  LEFT_SHIFT,
+  RIGHT_SHIFT,
   ELLIPSIS,         
 
   NEW,
@@ -96,4 +102,13 @@ struct Token {
 
   Token(TokenType type, std::string lexeme, Value literal, int line)
       : type(type), lexeme(lexeme), literal(literal), line(line) {}
+};
+struct ReturnException {
+  Value value;
+  ReturnException(Value value) : value(value) {}
+};
+
+struct FSKException {
+  Value value;
+  FSKException(Value value) : value(value) {}
 };

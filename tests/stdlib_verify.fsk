@@ -1,0 +1,24 @@
+import "./std/math.fsk";
+import "./std/fs.fsk";
+import "./std/json.fsk";
+
+print "--- StdLib Verification ---";
+
+print "Math.PI: " + math.PI;
+print "sin(PI/2): " + math.sin(math.PI / 2);
+print "abs(-10): " + math.abs(-10);
+
+let obj = { name: "Fsk", version: 1.0 };
+let str = json.stringify(obj);
+print "JSON String: " + str;
+let parsed = json.parse(str);
+print "Parsed Name: " + parsed.name;
+
+let testFile = "tests/stdlib_test_output.txt";
+fs.write(testFile, "Hello from StdLib!");
+if (fs.exists(testFile)) {
+    print "FS: File exists and written.";
+    print "FS Content: " + fs.read(testFile);
+}
+
+print "StdLib verification complete.";
