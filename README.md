@@ -1,6 +1,6 @@
 # Fsk Language (Perfect Edition)
 
-# Website docs https://fsk.kirosb.fr
+# Website docs https://fsk-lang.com
 
 # FPM Gestionary package Website https://fpm.kirosb.fr
 
