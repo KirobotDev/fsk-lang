@@ -275,7 +275,7 @@ void Compiler::visitSetExpr(Set &expr) {
     expr.value->accept(*this);
     uint8_t valReg = lastRegister;
     uint8_t keyIdx = addConstant(expr.name.lexeme);
-    emit(13, objReg, keyIdx, valReg); // SetProp
+    emit(13, objReg, keyIdx, valReg); 
 }
 
 void Compiler::visitIndexExpr(IndexExpr &expr) {
@@ -311,7 +311,6 @@ void Compiler::visitLetStmt(Let &stmt) {
         name = var->name.lexeme;
         if (isGlobal) {
             globalNames[name] = true;
-            // No local register for globals
             varReg = reserveRegister(); 
         } else {
             if (!registers.count(name)) {
