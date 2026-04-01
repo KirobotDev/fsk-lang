@@ -17,6 +17,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ libsqlite3-dev libssl-dev libcurl4-openssl-dev libx11-dev libxrandr-dev libxi-dev libxinerama-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev
           
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        
+      - name: Build fsk-core
+        run: |
+          cd fsk-core
+          cargo build --release
+          
       - name: Install raylib
         run: |
           git clone --depth 1 --branch 5.0 https://github.com/raysan5/raylib.git /tmp/raylib
@@ -51,7 +59,7 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: '8a2b7bee49786c55828ad9c4422f710ba8836d48'
+          vcpkgGitCommitId: '7f9f02c15414b7ee14fb836c30d1d17e34e03a73'
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           doNotUpdateVcpkg: false
           
