@@ -42,7 +42,7 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: '71538f2694db93da4668782d094768ba74c45991' # Use the version user has if possible
+          vcpkgGitCommitId: '71538f2694db93da4668782d094768ba74c45991'
           
       - name: Install Windows dependencies
         run: |
