@@ -12,6 +12,8 @@ set(SOURCES
     src/parser/Parser.cpp
     src/runtime/Interpreter.cpp
     src/runtime/Callable.cpp
+    src/compiler/TypeChecker.cpp
+    src/compiler/Compiler.cpp
     src/modules/easywsclient.cpp
 )
 
@@ -37,6 +39,7 @@ if(WIN32)
 endif()
 
 target_link_libraries(fsk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fsk-core/target/release/libfsk_core.a)
+target_link_libraries(fsk PRIVATE raylib)
 target_link_libraries(fsk PRIVATE pthread dl m)
 
 
