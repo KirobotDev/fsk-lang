@@ -22,7 +22,8 @@ jobs:
           git clone --depth 1 --branch 5.0 https://github.com/raysan5/raylib.git /tmp/raylib
           cd /tmp/raylib
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
-          cmake --build build --target install -j$(nproc)
+          cmake --build build -j$(nproc)
+          sudo cmake --build build --target install
           sudo ldconfig
           
       - name: Configure CMake
@@ -50,7 +51,7 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 'a1212c93ad8df0f8ab3319f4dd1e26ecc2f29dfb'
+          vcpkgGitCommitId: '8a2b7bee49786c55828ad9c4422f710ba8836d48'
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           doNotUpdateVcpkg: false
           
