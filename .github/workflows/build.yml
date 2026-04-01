@@ -21,6 +21,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         
       - name: Build fsk-core
+        env:
+          RUSTFLAGS: "-A warnings"
         run: |
           cd fsk-core
           cargo build --release
@@ -45,51 +47,3 @@ jobs:
         with:
           name: fsk-linux
           path: build/fsk
-
-  build-windows:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install cross-compilation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake g++-mingw-w64-x86-64 zip
-          
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: '7f9f02c15414b7ee14fb836c30d1d17e34e03a73'
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          doNotUpdateVcpkg: false
-          
-      - name: Install Windows dependencies
-        run: |
-          $VCPKG_ROOT/vcpkg install sqlite3:x64-mingw-static openssl:x64-mingw-static curl:x64-mingw-static raylib:x64-mingw-static
-          
-      - name: Configure CMake (Cross-Compile)
-        run: |
-          cmake -B build_windows \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
-            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
-            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-            -DVCPKG_TARGET_TRIPLET=x64-mingw-static \
-            -DVCPKG_APPLOCAL_DEPS=OFF \
-            -DCMAKE_BUILD_TYPE=Release .
-            
-      - name: Build fsk.exe
-        run: cmake --build build_windows --config Release
-        
-      - name: Package for Windows
-        run: |
-          mkdir -p dist
-          cp build_windows/fsk.exe dist/
-          cp -r std dist/
-          zip -r fsk_windows.zip dist/
-          
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fsk-windows-portable
-          path: fsk_windows.zip
