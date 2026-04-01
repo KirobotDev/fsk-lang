@@ -15,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ libsqlite3-dev libssl-dev libcurl4-openssl-dev
+          sudo apt-get install -y cmake g++ libsqlite3-dev libssl-dev libcurl4-openssl-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
           
       - name: Install raylib
         run: |
@@ -50,7 +50,7 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: '9edb1e99554f389654ed7afaa67e6ae6501daf25'
+          vcpkgGitCommitId: 'c202cef8dc68b0d0b7db4f8f51f97ab4dd13b51a'
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           doNotUpdateVcpkg: false
           
