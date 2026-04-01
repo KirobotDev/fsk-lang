@@ -17,6 +17,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ libsqlite3-dev libssl-dev libcurl4-openssl-dev
           
+      - name: Install raylib
+        run: |
+          git clone --depth 1 --branch 5.0 https://github.com/raysan5/raylib.git /tmp/raylib
+          cd /tmp/raylib
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build build --target install -j$(nproc)
+          sudo ldconfig
+          
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
         
@@ -42,11 +50,13 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: '71538f2694db93da4668782d094768ba74c45991'
+          vcpkgGitCommitId: '9edb1e99554f389654ed7afaa67e6ae6501daf25'
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          doNotUpdateVcpkg: false
           
       - name: Install Windows dependencies
         run: |
-          $VCPKG_ROOT/vcpkg install sqlite3:x64-mingw-static openssl:x64-mingw-static curl:x64-mingw-static
+          $VCPKG_ROOT/vcpkg install sqlite3:x64-mingw-static openssl:x64-mingw-static curl:x64-mingw-static raylib:x64-mingw-static
           
       - name: Configure CMake (Cross-Compile)
         run: |
