@@ -1,6 +1,7 @@
 /*
 * all rights reserved by xql.dev :)
 */
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -322,22 +323,90 @@ void handleWebBuild() {
     std::string embedArg = insideWeb ? "--embed-file main.fsk@web/main.fsk" : "--embed-file web/main.fsk";
     std::string outputArg = "-o " + buildDir + "/fsk.js";
 
-    std::string emsdkEnv = insideWeb ? "../emsdk/emsdk_env.sh" : "emsdk/emsdk_env.sh";
-    
-    bool emccGlobal = (std::system("which emcc > /dev/null 2>&1") == 0);
+    bool emccGlobal = (std::system("which em++ > /dev/null 2>&1") == 0);
     std::string cmdPrefix = "";
 
     if (!emccGlobal) {
-        if (fs::exists(emsdkEnv)) {
-             std::cout << "[INFO] Found local emsdk. Using environment from: " << emsdkEnv << std::endl;
-             cmdPrefix = "source " + emsdkEnv + " > /dev/null && ";
+        // Look for emsdk_env.sh next to the project, then in $HOME, so that
+        // `fsk build` works without the user having to source emsdk in their
+        // shell startup file.
+        std::vector<fs::path> sdkCandidates;
+        if (insideWeb) {
+            sdkCandidates = {fs::path("..") / "emsdk" / "emsdk_env.sh", "emsdk/emsdk_env.sh",
+                             fs::path("../..") / "emsdk" / "emsdk_env.sh"};
         } else {
-             std::cout << "[INFO] Global 'emcc' not found. Checking local emsdk..." << std::endl;
+            sdkCandidates = {"emsdk/emsdk_env.sh", "../emsdk/emsdk_env.sh",
+                             "web/emsdk/emsdk_env.sh"};
+        }
+        if (const char* home = std::getenv("HOME")) {
+            sdkCandidates.emplace_back(fs::path(home) / "emsdk" / "emsdk_env.sh");
+        }
+
+        for (const auto& candidate : sdkCandidates) {
+            if (!fs::exists(candidate)) continue;
+            std::cout << "[INFO] Found emsdk. Using environment from: " << candidate << std::endl;
+            cmdPrefix = "source " + candidate.string() + " > /dev/null 2>&1 && ";
+            break;
+        }
+
+        if (cmdPrefix.empty()) {
+             std::cerr << "\033[31m[ERROR]\033[0m Emscripten not found." << std::endl;
+             std::cerr << "  Install it with:" << std::endl;
+             std::cerr << "    git clone https://github.com/emscripten-core/emsdk.git ~/emsdk" << std::endl;
+             std::cerr << "    (cd ~/emsdk && ./emsdk install latest && ./emsdk activate latest)" << std::endl;
+             std::cerr << "  Or put it on your PATH: source ~/emsdk/emsdk_env.sh" << std::endl;
+             return;
         }
     }
 
-    std::string cmd = cmdPrefix + "emcc " + srcPrefix + "src/main.cpp " + srcPrefix + "src/lexer/Lexer.cpp " + srcPrefix + "src/parser/Parser.cpp " + srcPrefix + "src/runtime/Interpreter.cpp " + srcPrefix + "src/runtime/Callable.cpp " +
-                      includePrefix + " -std=c++20 -O3 -w "
+    // raylib must be the WebAssembly build: the system libraylib is a native
+    // x86-64 .so and cannot be linked into a wasm module.
+    std::string raylibWeb;
+    if (const char* env = std::getenv("FSK_RAYLIB_WEB")) raylibWeb = env;
+
+    if (raylibWeb.empty()) {
+        std::vector<fs::path> candidates;
+        if (insideWeb) {
+            candidates = {fs::path("..") / "raylib-web", "raylib-web", fs::path("../..") / "raylib-web"};
+        } else {
+            candidates = {"raylib-web", "web/raylib-web", "../raylib-web"};
+        }
+        if (const char* home = std::getenv("HOME")) {
+            for (const char* root : {"fsk-raylib", "raylib"}) {
+                std::error_code ec;
+                fs::path base = fs::path(home) / root;
+                if (!fs::is_directory(base, ec)) continue;
+                for (const auto& entry : fs::directory_iterator(base, ec)) {
+                    if (entry.is_directory(ec)) candidates.push_back(entry.path());
+                }
+            }
+        }
+        for (const auto& candidate : candidates) {
+            if (fs::exists(candidate / "include" / "raylib.h")) {
+                raylibWeb = candidate.string();
+                break;
+            }
+        }
+    }
+
+    if (raylibWeb.empty()) {
+        std::cerr << "\033[31m[ERROR]\033[0m raylib (WebAssembly build) not found." << std::endl;
+        std::cerr << "  Download the official web build and point FSK_RAYLIB_WEB at it:" << std::endl;
+        std::cerr << "    curl -L -o raylib.zip https://github.com/raysan5/raylib/releases/download/6.0/raylib-6.0_webassembly.zip" << std::endl;
+        std::cerr << "    unzip raylib.zip -d ~/fsk-raylib" << std::endl;
+        return;
+    }
+    std::cout << "[INFO] Using raylib (wasm): " << raylibWeb << std::endl;
+
+    // em++ not emcc: the runtime is C++ and needs the libc++abi.
+    // USE_GLFW (not the old USE_GLFW3) is the emscripten >= 3.1.51 spelling.
+    std::string cmd = cmdPrefix + "em++ " + srcPrefix + "src/main.cpp " + srcPrefix + "src/lexer/Lexer.cpp " + srcPrefix + "src/parser/Parser.cpp " + srcPrefix + "src/runtime/Interpreter.cpp " + srcPrefix + "src/runtime/Callable.cpp " + srcPrefix + "src/compiler/TypeChecker.cpp " + srcPrefix + "src/compiler/Compiler.cpp " +
+                      includePrefix +
+                      " -I " + raylibWeb + "/include" +
+                      " -L " + raylibWeb + "/lib" +
+                      " -lraylib.web" +
+                      " -sUSE_GLFW=3" +
+                      " -std=c++20 -O2 -w "
                       "-s WASM=1 "
                       "-s SINGLE_FILE=1 "
                       "-s ENVIRONMENT=web "

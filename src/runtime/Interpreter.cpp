@@ -10,6 +10,7 @@
 #include <thread>
 #include <fstream>
 #include "HttpCallback.hpp"
+#include "FskWasm.hpp"
 #include <iostream>
 #ifdef _WIN32
 #include <winsock2.h>
@@ -421,6 +422,31 @@ Interpreter::Interpreter() {
                          auto evLoop = i.eventLoop;
                          
                          evLoop->incrementWorkCount();
+#ifdef __EMSCRIPTEN__
+                         // No std::thread in wasm: the JS side is a synchronous
+                         // XHR, so do it inline and post the resolution.
+                         {
+                            char *result = fsk_fetch_blocking(url.c_str());
+                            if (result) {
+                               std::string body_res(result);
+                               fsk_free_string(result);
+
+                               evLoop->post([&interp, resolve, reject, body_res, evLoop]() {
+                                   if (auto r = std::get_if<std::shared_ptr<Callable>>(&resolve)) {
+                                       (*r)->call(interp, {Value(body_res)});
+                                   }
+                                   evLoop->decrementWorkCount();
+                               });
+                            } else {
+                               evLoop->post([&interp, resolve, reject, evLoop]() {
+                                   if (auto r = std::get_if<std::shared_ptr<Callable>>(&reject)) {
+                                       (*r)->call(interp, {Value(std::string("Fetch failed"))});
+                                   }
+                                   evLoop->decrementWorkCount();
+                               });
+                            }
+                         }
+#else
                          std::thread([evLoop, url, resolve, reject, &interp]() {
                              char *result = fsk_fetch_blocking(url.c_str());
                              if (result) {
@@ -442,6 +468,7 @@ Interpreter::Interpreter() {
                                 });
                              }
                          }).detach();
+#endif
                          return Value(std::monostate{}); 
                     };
 
@@ -728,15 +755,19 @@ Interpreter::Interpreter() {
 
    auto wsNInstance = std::make_shared<FSKInstance>(std::make_shared<FSKClass>("WS", nullptr, std::map<std::string, std::shared_ptr<Callable>>()));
    wsNInstance->fields["listen"] = std::make_shared<NativeFunction>(2, [](Interpreter &interp, std::vector<Value> args) {
-       if (!std::holds_alternative<double>(args[0])) throw std::runtime_error("WS.listen requires port");
-       int port = (int)std::get<double>(args[0]);
-       interp.globals->define("onWsMessage", args[1]);
-       interp.eventLoop->incrementWorkCount();
-       std::thread([port, &interp]() {
-           fsk_ws_listen((uint16_t)port, fsk_on_ws_message, &interp);
-       }).detach();
-       return Value(true);
-   });
+        if (!std::holds_alternative<double>(args[0])) throw std::runtime_error("WS.listen requires port");
+        int port = (int)std::get<double>(args[0]);
+        interp.globals->define("onWsMessage", args[1]);
+        interp.eventLoop->incrementWorkCount();
+#ifdef __EMSCRIPTEN__
+        fsk_wasm::unsupported("WS.listen (pas de threads en WebAssembly)");
+#else
+        std::thread([port, &interp]() {
+            fsk_ws_listen((uint16_t)port, fsk_on_ws_message, &interp);
+        }).detach();
+#endif
+        return Value(true);
+    });
    
    globals->define("WS", wsNInstance);
 
@@ -1071,7 +1102,7 @@ Interpreter::Interpreter() {
       int r = (int)std::get<double>(args[0]);
       int g = (int)std::get<double>(args[1]);
       int b = (int)std::get<double>(args[2]);
-      ClearBackground(CLITERAL(Color){ r, g, b, 255 });
+      ClearBackground(CLITERAL(Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 });
       return Value(true);
   });
 
